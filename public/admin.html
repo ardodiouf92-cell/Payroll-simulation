@@ -55,6 +55,19 @@ button{font:inherit;font-size:12.5px;border-radius:4px;cursor:pointer;padding:8p
 .sm{padding:5px 10px;font-size:11.5px}
 .actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .vide{padding:22px 0;color:var(--encre-pale);font-size:12.5px}
+.mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:4px 16px;
+  margin-top:4px}
+.mods label{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--encre);
+  margin:0;padding:5px 0;cursor:pointer;line-height:1.35}
+.mods input{width:auto;flex:none;margin-top:2px;accent-color:var(--indigo)}
+.mods .d{display:block;font-size:11px;color:var(--encre-pale);margin-top:1px}
+.droits{display:flex;flex-wrap:wrap;gap:4px;max-width:330px}
+.droits .m{font-size:10.5px;padding:2px 7px;border-radius:10px;background:#EEF2FA;color:var(--indigo)}
+.droits .m.off{background:#F3F3F1;color:var(--encre-pale);text-decoration:line-through}
+.cle{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.cle>div{flex:1 1 320px}
+.etat-cle{font-size:12px;color:var(--encre-doux);margin:0 0 12px}
+.etat-cle b{color:var(--encre)}
 </style>
 </head>
 <body>
@@ -72,6 +85,24 @@ button{font:inherit;font-size:12.5px;border-radius:4px;cursor:pointer;padding:8p
 <main>
   <p class="flag chaud" id="alerte" hidden></p>
   <p class="flag" id="info" hidden></p>
+
+  <div class="carte">
+    <h2>Clé API de l’assistant</h2>
+    <p class="aide">Une seule clé pour tout le monde. Elle reste sur le serveur : les navigateurs
+      ne la voient jamais, et l’assistant passe par un relais qui refuse les comptes auxquels le
+      module n’est pas ouvert. Sans clé enregistrée, chacun doit saisir la sienne.</p>
+    <p class="etat-cle" id="etatCle">—</p>
+    <form id="formCle" class="cle">
+      <div>
+        <label for="cleIa">Clé Anthropic</label>
+        <input id="cleIa" type="password" placeholder="sk-ant-…" autocomplete="off">
+      </div>
+      <div style="flex:0 0 auto;display:flex;gap:8px">
+        <button type="submit" class="b1">Enregistrer</button>
+        <button type="button" class="b3" id="supprCle">Retirer</button>
+      </div>
+    </form>
+  </div>
 
   <div class="carte">
     <h2>Créer un accès</h2>
@@ -92,18 +123,23 @@ button{font:inherit;font-size:12.5px;border-radius:4px;cursor:pointer;padding:8p
           </div></div>
         <div><button type="submit" class="b1" style="width:100%">Créer</button></div>
       </div>
+      <div style="margin-top:14px">
+        <label style="font-size:11.5px">Modules ouverts à cet accès</label>
+        <div class="mods" id="modsNouveau"></div>
+      </div>
     </form>
   </div>
 
   <div class="carte">
     <h2>Comptes</h2>
-    <p class="aide">Suspendre un compte coupe immédiatement ses sessions en cours, sans effacer
-      quoi que ce soit. Réinitialiser un mot de passe a le même effet et impose un nouveau choix
-      à la connexion suivante.</p>
+    <p class="aide">Les sessions ouvertes vivent en base : fermer celles d'une personne la
+      déconnecte de tous ses postes à l'instant même, sans attendre l'expiration du cookie.
+      Suspendre un compte ou réinitialiser son mot de passe produit le même effet, et la
+      réinitialisation impose un nouveau choix à la connexion suivante.</p>
     <table>
       <thead><tr>
         <th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th>
-        <th>Créé le</th><th>Dernière connexion</th><th></th>
+        <th>Modules</th><th>Dernière connexion</th><th>Sessions</th><th></th>
       </tr></thead>
       <tbody id="corps"></tbody>
     </table>
@@ -135,16 +171,15 @@ async function appel(url, options) {
   return d;
 }
 
-let MOI = null;
+let MOI = null, MODULES = [], COMPTES = [];
 
 async function charger() {
   try {
     MOI = await appel('/api/moi');
     const d = await appel('/api/utilisateurs');
-    if (!d.persistant)
-      dire($('alerte'), 'Les comptes sont enregistrés dans « ' + d.dossier + ' », qui n’est pas un ' +
-        'disque persistant : sur Render, ils seront perdus au prochain déploiement. Montez un disque ' +
-        'et renseignez la variable DATA_DIR.');
+    MODULES = d.modules || [];
+    cases($('modsNouveau'), MODULES.map(m => m.cle));
+    etatCle(d.ia);
     rendre(d.utilisateurs);
   } catch (ex) {
     if (/session/i.test(ex.message)) return location.href = '/connexion';
@@ -152,7 +187,28 @@ async function charger() {
   }
 }
 
+/* Les cases servent à deux endroits : la création d'un accès et la ligne que
+   l'on déplie pour en modifier un. */
+function cases(hote, coches, prefixe) {
+  hote.innerHTML = MODULES.map(m => `<label>
+    <input type="checkbox" value="${esc(m.cle)}"${coches.includes(m.cle) ? ' checked' : ''}>
+    <span>${esc(m.nom)}<span class="d">${esc(m.desc)}</span></span></label>`).join('');
+}
+const lus = hote => [...hote.querySelectorAll('input:checked')].map(i => i.value);
+
+function etatCle(ia) {
+  if (!ia || !ia.definie) {
+    $('etatCle').innerHTML = '<b>Aucune clé enregistrée.</b> L’assistant reste inerte tant que ' +
+      'chacun n’a pas saisi la sienne dans les réglages de l’outil.';
+    return;
+  }
+  $('etatCle').innerHTML = `<b>Clé en place</b> — ${esc(ia.apercu)}` +
+    (ia.parVariable ? ' , fournie par la variable d’environnement <code>ANTHROPIC_API_KEY</code>.'
+                    : ' , enregistrée en base. Saisir une nouvelle clé remplace celle-ci.');
+}
+
 function rendre(us) {
+  COMPTES = us;
   $('vide').hidden = us.length > 0;
   $('corps').innerHTML = us.map(u => {
     const moi = MOI && u.login.toLowerCase() === MOI.login.toLowerCase();
@@ -162,9 +218,16 @@ function rendre(us) {
       <td>${u.role === 'admin' ? '<span class="pill adm">Administrateur</span>' : 'Utilisateur'}</td>
       <td>${u.actif ? '<span class="pill ok">Actif</span>' : '<span class="pill off">Suspendu</span>'}
           ${u.doitChanger ? ' <span class="pill prov">mot de passe provisoire</span>' : ''}</td>
-      <td>${jour(u.cree)}</td>
+      <td>${u.role === 'admin'
+            ? '<span class="droits"><span class="m">tous</span></span>'
+            : `<div class="droits">${MODULES.map(m =>
+                `<span class="m${u.droits.includes(m.cle) ? '' : ' off'}">${esc(m.nom)}</span>`).join('')}</div>`}</td>
       <td>${jour(u.derniere)}</td>
+      <td>${u.sessions ? `<span class="pill ok">${u.sessions} ouverte${u.sessions>1?'s':''}</span>` :
+            '<span class="pill off">aucune</span>'}</td>
       <td><div class="actions">
+        ${u.sessions ? '<button class="b2 sm" data-act="sessions">Fermer les sessions</button>' : ''}
+        ${u.role === 'admin' ? '' : '<button class="b2 sm" data-act="modules">Modules</button>'}
         <button class="b2 sm" data-act="mdp">Réinitialiser</button>
         <button class="b2 sm" data-act="bascule">${u.actif ? 'Suspendre' : 'Réactiver'}</button>
         ${moi ? '' : '<button class="b3 sm" data-act="suppr">Supprimer</button>'}
@@ -179,6 +242,8 @@ function rendre(us) {
 async function agir(login, act, bouton) {
   dire($('alerte'), ''); dire($('info'), '');
   try {
+    if (act === 'modules') return modules(login);
+
     if (act === 'mdp') {
       const mdp = motDePasse();
       if (!confirm(`Réinitialiser le mot de passe de « ${login} » ?\n\n` +
@@ -189,12 +254,24 @@ async function agir(login, act, bouton) {
           body: JSON.stringify({ mdp }) });
       dire($('info'), `Mot de passe de « ${login} » réinitialisé à : ${mdp} — ` +
         `ses sessions en cours sont coupées.`);
+
     } else if (act === 'bascule') {
       const suspendre = bouton.textContent.trim() === 'Suspendre';
       await appel('/api/utilisateurs/' + encodeURIComponent(login),
         { method: 'PATCH', headers: {'content-type':'application/json'},
           body: JSON.stringify({ actif: !suspendre }) });
       dire($('info'), `Compte « ${login} » ${suspendre ? 'suspendu' : 'réactivé'}.`);
+
+    } else if (act === 'sessions') {
+      const moi = MOI && login.toLowerCase() === MOI.login.toLowerCase();
+      if (!confirm(`Fermer toutes les sessions de « ${login} » ?` +
+                   (moi ? '\n\nLa vôtre en fait partie : vous devrez vous reconnecter.' : ''))) return;
+      await appel('/api/utilisateurs/' + encodeURIComponent(login),
+        { method: 'PATCH', headers: {'content-type':'application/json'},
+          body: JSON.stringify({ fermerSessions: true }) });
+      if (moi) return location.href = '/connexion';
+      dire($('info'), `Sessions de « ${login} » fermées.`);
+
     } else if (act === 'suppr') {
       if (!confirm(`Supprimer définitivement le compte « ${login} » ?`)) return;
       await appel('/api/utilisateurs/' + encodeURIComponent(login), { method: 'DELETE' });
@@ -204,6 +281,71 @@ async function agir(login, act, bouton) {
   } catch (ex) { dire($('alerte'), ex.message); }
 }
 
+/* Les modules se règlent sous la ligne du compte : une seule à la fois, pour
+   qu'on voie ce que l'on modifie. */
+function modules(login) {
+  const tr = document.querySelector(`#corps tr[data-login="${CSS.escape(login)}"]`);
+  const u  = COMPTES.find(x => x.login === login);
+  if (!tr || !u) return;
+
+  const suivante = tr.nextElementSibling;
+  document.querySelectorAll('#corps tr.edition').forEach(x => x.remove());
+  if (suivante && suivante.classList.contains('edition')) return;   /* second clic : on referme */
+
+  const ligne = document.createElement('tr');
+  ligne.className = 'edition';
+  ligne.innerHTML = `<td colspan="8" style="background:var(--smoke);padding:14px 10px">
+    <b style="font-size:12.5px;color:var(--indigo)">Modules ouverts à « ${esc(login)} »</b>
+    <div class="mods" id="modsEdit" style="margin:8px 0 12px"></div>
+    <div class="actions" style="justify-content:flex-start">
+      <button class="b1 sm" id="modsOk">Enregistrer</button>
+      <button class="b2 sm" id="modsTout">Tout cocher</button>
+      <button class="b2 sm" id="modsRien">Tout décocher</button>
+      <button class="b2 sm" id="modsAnnul">Annuler</button>
+    </div></td>`;
+  tr.after(ligne);
+  cases($('modsEdit'), u.droits);
+
+  $('modsTout').onclick  = () => cases($('modsEdit'), MODULES.map(m => m.cle));
+  $('modsRien').onclick  = () => cases($('modsEdit'), []);
+  $('modsAnnul').onclick = () => ligne.remove();
+  $('modsOk').onclick = async () => {
+    try {
+      await appel('/api/utilisateurs/' + encodeURIComponent(login), {
+        method: 'PATCH', headers: {'content-type':'application/json'},
+        body: JSON.stringify({ droits: lus($('modsEdit')) }) });
+      dire($('info'), `Modules de « ${login} » enregistrés. Le changement prend effet au ` +
+        `prochain chargement de l’outil ; fermez ses sessions pour qu’il soit immédiat.`);
+      charger();
+    } catch (ex) { dire($('alerte'), ex.message); }
+  };
+}
+
+/* ─── la clé API ─── */
+$('formCle').addEventListener('submit', async e => {
+  e.preventDefault();
+  dire($('alerte'), ''); dire($('info'), '');
+  try {
+    const d = await appel('/api/cle-ia', {
+      method: 'PUT', headers: {'content-type':'application/json'},
+      body: JSON.stringify({ cle: $('cleIa').value.trim() }) });
+    $('cleIa').value = '';
+    dire($('info'), `Clé enregistrée (${d.apercu}). Elle sert à tous les comptes dont le ` +
+      `module Assistant IA est ouvert.`);
+    charger();
+  } catch (ex) { dire($('alerte'), ex.message); }
+});
+
+$('supprCle').addEventListener('click', async () => {
+  if (!confirm('Retirer la clé enregistrée ?\n\nL’assistant redeviendra inerte pour tout le monde.')) return;
+  dire($('alerte'), ''); dire($('info'), '');
+  try {
+    await appel('/api/cle-ia', { method: 'DELETE' });
+    dire($('info'), 'Clé retirée.');
+    charger();
+  } catch (ex) { dire($('alerte'), ex.message); }
+});
+
 $('formNouveau').addEventListener('submit', async e => {
   e.preventDefault();
   dire($('alerte'), ''); dire($('info'), '');
@@ -212,11 +354,13 @@ $('formNouveau').addEventListener('submit', async e => {
     const login = $('nLogin').value.trim();
     await appel('/api/utilisateurs', {
       method: 'POST', headers: {'content-type':'application/json'},
-      body: JSON.stringify({ login, nom: $('nNom').value, role: $('nRole').value, mdp })
+      body: JSON.stringify({ login, nom: $('nNom').value, role: $('nRole').value, mdp,
+                             droits: lus($('modsNouveau')) })
     });
     dire($('info'), `Accès créé pour « ${login} ». Mot de passe provisoire : ${mdp} — ` +
       `transmettez-le, il ne sera plus affiché.`);
     $('formNouveau').reset(); $('nMdp').type = 'password';
+    cases($('modsNouveau'), MODULES.map(m => m.cle));
     charger();
   } catch (ex) { dire($('alerte'), ex.message); }
 });

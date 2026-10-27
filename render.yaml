@@ -1,25 +1,28 @@
+databases:
+  - name: payor-base
+    databaseName: payor
+    user: payor
+    plan: free            # une base gratuite est supprimée au bout de 30 jours :
+                          # choisissez un plan payant pour un usage réel
+
 services:
   - type: web
     name: payor-simul
     runtime: node
-    plan: starter            # un disque persistant exige au moins le plan Starter
+    plan: free            # suffisant ici : plus aucun disque n'est nécessaire
     region: frankfurt
     buildCommand: npm install
     startCommand: node server.js
     healthCheckPath: /sante
-    disk:
-      name: donnees
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: payor-base
+          property: connectionString
       - key: NODE_ENV
         value: production
-      - key: DATA_DIR
-        value: /var/data
-      - key: SESSION_SECRET
-        generateValue: true
       - key: ADMIN_LOGIN
-        sync: false          # à renseigner dans le tableau de bord Render
+        sync: false       # à renseigner dans le tableau de bord Render
       - key: ADMIN_MDP
         sync: false
       - key: ADMIN_NOM

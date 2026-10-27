@@ -749,10 +749,16 @@ button.act{border-radius:5px}
       <button data-tab="das" data-i="15" id="lnkDas">Déclaration annuelle des salaires</button>
     </div>
   </div>
-  <div class="navitem"><button class="nav-top" type="button" id="lnkParams">Barème et taux</button></div>
   <div class="navitem"><button class="nav-top" type="button" id="lnkModeles">Modèles de documents</button></div>
   <div class="navitem"><button class="nav-top" type="button" id="lnkAssist">Assistant IA</button></div>
-  <div class="navitem"><button class="nav-top" type="button" id="lnkDossier">Dossier</button></div>
+  <div class="navitem">
+    <button class="nav-top" type="button" aria-haspopup="true" aria-expanded="false">
+      Dossier<i class="caret" aria-hidden="true"></i></button>
+    <div class="nav-drop">
+      <button data-tab="dossier" id="lnkDossier">Dossier et identité visuelle</button>
+      <button data-tab="params" id="lnkParams">Barème et taux</button>
+    </div>
+  </div>
   </nav>
 </div>
 
@@ -3399,8 +3405,6 @@ function aller(tab){
     x.dataset.tab === tab ? x.setAttribute('aria-current','page') : x.removeAttribute('aria-current'));
   document.querySelectorAll('.navitem').forEach(it =>
     it.classList.toggle('active', !!it.querySelector('.nav-drop button[aria-current="page"]')));
-  $('lnkParams').setAttribute('aria-current', tab === 'params' ? 'page' : 'false');
-  $('lnkDossier').setAttribute('aria-current', tab === 'dossier' ? 'page' : 'false');
   $('lnkModeles').setAttribute('aria-current', tab === 'modeles' ? 'page' : 'false');
   $('lnkAssist').setAttribute('aria-current', tab === 'assistant' ? 'page' : 'false');
   fermerMenus();
@@ -3422,8 +3426,6 @@ document.addEventListener('click', fermerMenus);
 document.addEventListener('keydown', e => { if(e.key === 'Escape') fermerMenus(); });
 $('btnLotPrint').addEventListener('click', () => window.print());
 $('btnLotRetour').addEventListener('click', () => aller('g_bulletin'));
-$('lnkParams').addEventListener('click', () => aller('params'));
-$('lnkDossier').addEventListener('click', () => aller('dossier'));
 $('lnkModeles').addEventListener('click', () => aller('modeles'));
 $('lnkAssist').addEventListener('click', () => aller('assistant'));
 
