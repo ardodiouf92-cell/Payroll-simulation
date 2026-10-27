@@ -377,25 +377,10 @@ const BANDEAU = `
 
     /* La clé vit sur le serveur : l'assistant passe par le relais, et aucune
        clé ne transite par le navigateur. */
-    if (u.ia) {
-      if ((u.droits || []).indexOf('assistant') >= 0)
-        window.PS_CONFIG = Object.assign({}, window.PS_CONFIG, { proxy: '/api/ia' });
-      /* Le relais ignore la clé saisie ici : laisser le champ visible ferait
-         croire qu'il sert à quelque chose, et inviterait chacun à coller la
-         sienne dans un outil qui ne la lira pas. */
-      var champ = document.getElementById('iaKey');
-      var bloc  = champ && champ.closest('.field');
-      if (bloc) {
-        /* L'attribut hidden ne masque rien face au display:flex du champ :
-           il faut écraser la propriété. */
-        bloc.style.display = 'none';
-        var note = bloc.nextElementSibling;
-        if (note && note.classList.contains('hint'))
-          note.textContent = 'La clé est détenue par le serveur et partagée par tous les accès : '
-            + 'rien n\u2019est à saisir ici. Adressez-vous à l\u2019administrateur si l\u2019assistant '
-            + 'ne répond pas.';
-      }
-    }
+    /* L'assistant passe toujours par le relais : sans clé côté serveur, c'est
+       lui qui répond, avec un message clair, plutôt qu'un appel direct à
+       Anthropic qui échouerait sans explication. */
+    window.PS_CONFIG = Object.assign({}, window.PS_CONFIG, { proxy: '/api/ia' });
 
     /* Les notes de bas d'écran — charte, portée des modèles, avertissement
        général — s'adressent à qui administre l'outil, pas à qui s'en sert. */
@@ -450,12 +435,33 @@ const BANDEAU = `
 })();
 <\/script>`;
 
+/* Le champ de saisie de clé est retiré de la page servie — pas masqué, retiré.
+   Sur un déploiement partagé, la clé relève de l'administrateur : personne ne
+   doit pouvoir y coller la sienne, ni même voir qu'on le pourrait. Le fichier
+   d'origine garde son champ : hors serveur, c'est le seul moyen de s'en servir. */
+function sansChampCle(html) {
+  const CHAMP = `        <div class="field stack"><label for="iaKey">Clé API Anthropic <span style="color:var(--ink-faint)">— facultative</span></label>
+          <input id="iaKey" type="password" placeholder="sk-ant-… (hors Claude uniquement)" spellcheck="false"></div>
+        <p class="hint">Dans Claude, laissez ce champ vide : l'appel passe par la session en cours.
+          Sur un serveur ou en fichier local, renseignez une clé ou branchez votre propre proxy.</p>`;
+  const NOTE = `        <p class="hint">La clé de l'assistant est détenue par le serveur et partagée par
+          tous les accès : rien n'est à saisir ici. Si l'assistant ne répond pas, adressez-vous à
+          l'administrateur de l'outil.</p>`;
+  let out = html;
+  if (out.includes(CHAMP)) out = out.replace(CHAMP, NOTE);
+  else console.warn('[payor] champ de clé introuvable : le gabarit a changé, vérifiez la page servie.');
+  /* Le lecteur du champ disparaît avec lui, sinon l'appel planterait. */
+  out = out.replace("const key = $('iaKey').value.trim();", "const key = '';   /* saisie retirée côté serveur */");
+  return out;
+}
+
 /* `</body>` figure aussi dans les gabarits d'export Word, à l'intérieur de
    chaînes JavaScript : seule la dernière occurrence ferme vraiment la page. */
 const PAGE_SERVIE = (() => {
-  const i = PAGE_APP.lastIndexOf('</body>');
-  return i < 0 ? PAGE_APP + BANDEAU
-               : PAGE_APP.slice(0, i) + BANDEAU + '\n' + PAGE_APP.slice(i);
+  const base = sansChampCle(PAGE_APP);
+  const i = base.lastIndexOf('</body>');
+  return i < 0 ? base + BANDEAU
+               : base.slice(0, i) + BANDEAU + '\n' + base.slice(i);
 })();
 
 /* extraction de la marque, pour que la page de garde porte le même logo
@@ -486,7 +492,8 @@ app.use((_req, res, next) => {
     "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " +
     "style-src 'self' 'unsafe-inline'; " +
     "img-src 'self' data: blob:; font-src 'self' data:; " +
-    "connect-src 'self' https://cdnjs.cloudflare.com https://api.anthropic.com; " +
+    /* Le navigateur n'appelle plus Anthropic : tout passe par /api/ia. */
+    "connect-src 'self' https://cdnjs.cloudflare.com; " +
     "worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'");
   next();
 });

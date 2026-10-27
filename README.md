@@ -161,8 +161,15 @@ et toute saisie est refusée avec un message explicite : une clé qu'on croit
 active et qui ne sert pas vaut moins qu'une saisie refusée. Si une clé traîne
 encore en base, l'interface le signale et propose de la retirer.
 
-Sans aucune clé, l'outil retrouve son comportement d'origine : chacun saisit la
-sienne dans les réglages de l'onglet Assistant.
+**Personne ne peut saisir sa propre clé.** Le champ « Clé API Anthropic » de
+l'onglet Assistant est retiré de la page servie — pas masqué, retiré : il
+n'apparaît pas dans le code reçu par le navigateur, et le lecteur de ce champ
+est neutralisé. L'assistant passe toujours par `/api/ia`, et la politique de
+sécurité du contenu interdit au navigateur d'appeler Anthropic directement.
+
+Sans clé côté serveur, l'assistant répond donc qu'aucune clé n'est enregistrée
+et renvoie vers l'administrateur. Le fichier `app/payor-simul.html` conserve son
+champ : ouvert seul, hors serveur, c'est le seul moyen de s'en servir.
 
 Le dernier administrateur actif ne peut être ni suspendu, ni rétrogradé, ni
 supprimé : sans lui, plus personne ne pourrait créer de compte.
