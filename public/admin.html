@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PAYOR SIMUL — Gestion des accès</title>
+<link rel="icon" href="/marque">
+<style>
+:root{
+  --indigo:#171C8F; --bleu:#0072CE; --encre:#464B4B; --encre-doux:#727578;
+  --encre-pale:#97999B; --filet:#E6E6E3; --filet-fort:#C8C9C7; --smoke:#FAFAFA;
+  --danger:#BC204B; --font:'Halyard Text','Halyard',Arial,Helvetica,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:var(--font);color:var(--encre);background:var(--smoke);font-size:13px}
+.tete{background:#fff;border-bottom:1px solid var(--filet-fort);padding:16px 30px;
+  display:flex;align-items:center;gap:14px}
+.tete img{height:34px;width:auto;display:block}
+.tete h1{margin:0;font-size:19px;font-weight:700;letter-spacing:-.015em;color:var(--indigo)}
+.tete h1 span{font-weight:400;color:var(--bleu)}
+.tete .fil{margin-left:4px;font-size:12.5px;color:var(--encre-doux)}
+.tete nav{margin-left:auto;display:flex;gap:16px;font-size:12.5px}
+.tete nav a{color:var(--bleu);text-decoration:none}
+.tete nav a:hover{color:var(--indigo)}
+main{max-width:1020px;margin:0 auto;padding:26px 30px 60px}
+h2{font-size:15px;font-weight:700;color:var(--indigo);margin:0 0 3px}
+.aide{margin:0 0 16px;font-size:12px;color:var(--encre-doux);line-height:1.6;max-width:720px}
+.carte{background:#fff;border:1px solid var(--filet);border-radius:5px;padding:20px 22px;margin-bottom:18px}
+.flag{border-left:3px solid var(--bleu);background:#F2F6FB;padding:11px 14px;border-radius:5px;
+  font-size:12px;line-height:1.6;margin:0 0 18px}
+.flag.chaud{border-left-color:var(--danger);background:#FDF1F3}
+.flag[hidden]{display:none}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;font-size:11px;font-weight:700;color:var(--indigo);padding:0 10px 8px 0;
+  border-bottom:1px solid var(--filet-fort);white-space:nowrap}
+td{padding:9px 10px 9px 0;border-bottom:1px solid var(--filet);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px}
+.pill.ok{background:#E8F3EC;color:#1E6B45}
+.pill.off{background:#F3F3F1;color:var(--encre-pale)}
+.pill.adm{background:#E3ECF6;color:var(--indigo)}
+.pill.prov{background:#FDF1F3;color:#8C2240}
+.ligne-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;align-items:end}
+label{display:block;font-size:11.5px;color:var(--encre-doux);margin-bottom:4px}
+input,select{width:100%;font:inherit;font-size:13px;color:var(--encre);background:#fff;
+  border:1px solid var(--filet-fort);border-radius:4px;padding:8px 10px}
+input:focus,select:focus{outline:2px solid var(--bleu);outline-offset:-2px}
+button{font:inherit;font-size:12.5px;border-radius:4px;cursor:pointer;padding:8px 14px;border:0}
+.b1{background:var(--indigo);color:#fff;font-weight:600}
+.b1:hover{background:#0F1370}
+.b2{background:none;color:var(--encre);border:1px solid var(--filet-fort)}
+.b2:hover{border-color:var(--bleu);color:var(--bleu)}
+.b3{background:none;color:var(--danger);border:1px solid #EBC9D2}
+.b3:hover{background:#FDF1F3}
+.sm{padding:5px 10px;font-size:11.5px}
+.actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.vide{padding:22px 0;color:var(--encre-pale);font-size:12.5px}
+</style>
+</head>
+<body>
+
+<div class="tete">
+  <img src="/marque" alt="">
+  <h1>PAYOR <span>SIMUL</span></h1>
+  <span class="fil">· Gestion des accès</span>
+  <nav>
+    <a href="/">Retour à l’outil</a>
+    <a href="/deconnexion">Se déconnecter</a>
+  </nav>
+</div>
+
+<main>
+  <p class="flag chaud" id="alerte" hidden></p>
+  <p class="flag" id="info" hidden></p>
+
+  <div class="carte">
+    <h2>Créer un accès</h2>
+    <p class="aide">Le mot de passe que vous saisissez est provisoire : la personne devra le
+      remplacer à sa première connexion. Transmettez-le par un autre canal que celui où vous
+      envoyez le lien.</p>
+    <form id="formNouveau">
+      <div class="ligne-form">
+        <div><label for="nLogin">Identifiant</label><input id="nLogin" required></div>
+        <div><label for="nNom">Nom affiché</label><input id="nNom" placeholder="facultatif"></div>
+        <div><label for="nRole">Rôle</label>
+          <select id="nRole"><option value="utilisateur">Utilisateur</option>
+            <option value="admin">Administrateur</option></select></div>
+        <div><label for="nMdp">Mot de passe provisoire</label>
+          <div style="display:flex;gap:6px">
+            <input id="nMdp" minlength="10" required>
+            <button type="button" class="b2 sm" id="tirer" title="Proposer un mot de passe">Tirer</button>
+          </div></div>
+        <div><button type="submit" class="b1" style="width:100%">Créer</button></div>
+      </div>
+    </form>
+  </div>
+
+  <div class="carte">
+    <h2>Comptes</h2>
+    <p class="aide">Suspendre un compte coupe immédiatement ses sessions en cours, sans effacer
+      quoi que ce soit. Réinitialiser un mot de passe a le même effet et impose un nouveau choix
+      à la connexion suivante.</p>
+    <table>
+      <thead><tr>
+        <th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th>
+        <th>Créé le</th><th>Dernière connexion</th><th></th>
+      </tr></thead>
+      <tbody id="corps"></tbody>
+    </table>
+    <div class="vide" id="vide" hidden>Aucun compte.</div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const dire = (el, t) => { el.textContent = t; el.hidden = !t; };
+const jour = s => s ? new Date(s).toLocaleString('fr-FR',
+  {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '—';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const motDePasse = () => {
+  const a = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from(crypto.getRandomValues(new Uint32Array(14)), n => a[n % a.length]).join('');
+};
+$('tirer').addEventListener('click', () => {
+  $('nMdp').value = motDePasse();
+  $('nMdp').type = 'text';
+});
+
+async function appel(url, options) {
+  const r = await fetch(url, options);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.erreur || 'Opération refusée.');
+  return d;
+}
+
+let MOI = null;
+
+async function charger() {
+  try {
+    MOI = await appel('/api/moi');
+    const d = await appel('/api/utilisateurs');
+    if (!d.persistant)
+      dire($('alerte'), 'Les comptes sont enregistrés dans « ' + d.dossier + ' », qui n’est pas un ' +
+        'disque persistant : sur Render, ils seront perdus au prochain déploiement. Montez un disque ' +
+        'et renseignez la variable DATA_DIR.');
+    rendre(d.utilisateurs);
+  } catch (ex) {
+    if (/session/i.test(ex.message)) return location.href = '/connexion';
+    dire($('alerte'), ex.message);
+  }
+}
+
+function rendre(us) {
+  $('vide').hidden = us.length > 0;
+  $('corps').innerHTML = us.map(u => {
+    const moi = MOI && u.login.toLowerCase() === MOI.login.toLowerCase();
+    return `<tr data-login="${esc(u.login)}">
+      <td><b>${esc(u.login)}</b>${moi ? ' <span class="pill adm">vous</span>' : ''}</td>
+      <td>${esc(u.nom)}</td>
+      <td>${u.role === 'admin' ? '<span class="pill adm">Administrateur</span>' : 'Utilisateur'}</td>
+      <td>${u.actif ? '<span class="pill ok">Actif</span>' : '<span class="pill off">Suspendu</span>'}
+          ${u.doitChanger ? ' <span class="pill prov">mot de passe provisoire</span>' : ''}</td>
+      <td>${jour(u.cree)}</td>
+      <td>${jour(u.derniere)}</td>
+      <td><div class="actions">
+        <button class="b2 sm" data-act="mdp">Réinitialiser</button>
+        <button class="b2 sm" data-act="bascule">${u.actif ? 'Suspendre' : 'Réactiver'}</button>
+        ${moi ? '' : '<button class="b3 sm" data-act="suppr">Supprimer</button>'}
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  $('corps').querySelectorAll('button[data-act]').forEach(b =>
+    b.addEventListener('click', () => agir(b.closest('tr').dataset.login, b.dataset.act, b)));
+}
+
+async function agir(login, act, bouton) {
+  dire($('alerte'), ''); dire($('info'), '');
+  try {
+    if (act === 'mdp') {
+      const mdp = motDePasse();
+      if (!confirm(`Réinitialiser le mot de passe de « ${login} » ?\n\n` +
+                   `Nouveau mot de passe provisoire :\n${mdp}\n\n` +
+                   `Notez-le maintenant : il ne sera plus affiché.`)) return;
+      await appel('/api/utilisateurs/' + encodeURIComponent(login),
+        { method: 'PATCH', headers: {'content-type':'application/json'},
+          body: JSON.stringify({ mdp }) });
+      dire($('info'), `Mot de passe de « ${login} » réinitialisé à : ${mdp} — ` +
+        `ses sessions en cours sont coupées.`);
+    } else if (act === 'bascule') {
+      const suspendre = bouton.textContent.trim() === 'Suspendre';
+      await appel('/api/utilisateurs/' + encodeURIComponent(login),
+        { method: 'PATCH', headers: {'content-type':'application/json'},
+          body: JSON.stringify({ actif: !suspendre }) });
+      dire($('info'), `Compte « ${login} » ${suspendre ? 'suspendu' : 'réactivé'}.`);
+    } else if (act === 'suppr') {
+      if (!confirm(`Supprimer définitivement le compte « ${login} » ?`)) return;
+      await appel('/api/utilisateurs/' + encodeURIComponent(login), { method: 'DELETE' });
+      dire($('info'), `Compte « ${login} » supprimé.`);
+    }
+    charger();
+  } catch (ex) { dire($('alerte'), ex.message); }
+}
+
+$('formNouveau').addEventListener('submit', async e => {
+  e.preventDefault();
+  dire($('alerte'), ''); dire($('info'), '');
+  try {
+    const mdp = $('nMdp').value;
+    const login = $('nLogin').value.trim();
+    await appel('/api/utilisateurs', {
+      method: 'POST', headers: {'content-type':'application/json'},
+      body: JSON.stringify({ login, nom: $('nNom').value, role: $('nRole').value, mdp })
+    });
+    dire($('info'), `Accès créé pour « ${login} ». Mot de passe provisoire : ${mdp} — ` +
+      `transmettez-le, il ne sera plus affiché.`);
+    $('formNouveau').reset(); $('nMdp').type = 'password';
+    charger();
+  } catch (ex) { dire($('alerte'), ex.message); }
+});
+
+charger();
+</script>
+</body>
+</html>

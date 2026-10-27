@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PAYOR SIMUL — Connexion</title>
+<link rel="icon" href="/marque">
+<style>
+:root{
+  --indigo:#171C8F; --bleu:#0072CE; --starlight:#5D93CD;
+  --encre:#464B4B; --encre-doux:#727578; --encre-pale:#97999B;
+  --filet:#E6E6E3; --filet-fort:#C8C9C7; --smoke:#FAFAFA;
+  --danger:#BC204B;
+  --font:'Halyard Text','Halyard',Arial,Helvetica,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:var(--font);color:var(--encre);background:#fff;
+  display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+
+/* ─── volet de marque : le supergraphique, coupé par le bord ─── */
+.garde{position:relative;overflow:hidden;background:var(--smoke);
+  border-right:1px solid var(--filet-fort);padding:48px 52px;
+  display:flex;flex-direction:column}
+.garde::after{content:'';position:absolute;top:-10%;bottom:-10%;left:38%;width:34%;
+  background:#F2F2F0;transform:skewX(-20deg)}
+.garde>*{position:relative;z-index:1}
+.sig{font-size:11.5px;font-weight:700;color:var(--bleu);letter-spacing:.04em}
+.marque{display:flex;align-items:flex-start;gap:16px;margin-top:auto}
+.marque img{height:58px;width:auto;display:block;flex:none}
+h1{margin:0;font-size:38px;font-weight:700;letter-spacing:-.02em;line-height:1.05;color:var(--indigo)}
+h1 span{font-weight:400;color:var(--bleu)}
+.sous{margin:6px 0 0;font-size:14px;color:var(--encre-doux)}
+.trait{height:2px;background:var(--indigo);width:84px;margin:26px 0 20px}
+.pitch{font-size:13.5px;line-height:1.65;color:var(--encre-doux);max-width:430px;margin:0}
+.pied{margin-top:auto;padding-top:26px;font-size:11px;color:var(--encre-pale);line-height:1.6;max-width:430px}
+
+/* ─── volet d'accès ─── */
+.acces{display:flex;align-items:center;justify-content:center;padding:48px 52px}
+.boite{width:100%;max-width:368px}
+.boite h2{margin:0 0 4px;font-size:21px;font-weight:700;color:var(--indigo);letter-spacing:-.01em}
+.boite .aide{margin:0 0 26px;font-size:12.5px;color:var(--encre-doux);line-height:1.55}
+label{display:block;font-size:12px;color:var(--encre-doux);margin-bottom:5px}
+input{width:100%;font:inherit;font-size:14px;color:var(--encre);background:#fff;
+  border:1px solid var(--filet-fort);border-radius:5px;padding:10px 12px}
+input:focus{outline:2px solid var(--bleu);outline-offset:-2px;border-color:var(--bleu)}
+.champ{margin-bottom:15px}
+button{width:100%;font:inherit;font-size:14px;font-weight:600;color:#fff;background:var(--indigo);
+  border:0;border-radius:5px;padding:12px;cursor:pointer;margin-top:4px}
+button:hover{background:#0F1370}
+button[disabled]{opacity:.55;cursor:default}
+.msg{margin:0 0 16px;padding:10px 12px;border-radius:5px;font-size:12.5px;line-height:1.5;
+  border-left:3px solid var(--danger);background:#FDF1F3;color:#8C2240}
+.msg[hidden]{display:none}
+.note{margin:18px 0 0;font-size:11.5px;color:var(--encre-pale);line-height:1.55}
+.vol{display:none}
+.vol.on{display:block}
+
+@media(max-width:860px){
+  body{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .garde{border-right:0;border-bottom:1px solid var(--filet-fort);padding:28px 24px}
+  .garde::after{display:none}
+  .marque img{height:42px}
+  h1{font-size:28px}
+  .trait,.pitch,.pied{display:none}
+  .acces{padding:32px 24px;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+
+<section class="garde">
+  <div class="sig">Forvis Mazars · Built for forward</div>
+  <div class="marque">
+    <img src="/marque" alt="">
+    <div>
+      <h1>PAYOR <span>SIMUL</span></h1>
+      <p class="sous">Simulation de paie · République du Sénégal</p>
+    </div>
+  </div>
+  <div class="trait"></div>
+  <p class="pitch">Nombre de parts, impôt sur le revenu, calcul à l’envers, bulletin de paie,
+    provision retraite, indemnité de licenciement et avantages en nature — à l’unité ou sur
+    un effectif entier. Contrôle de la déclaration annuelle des salaires et vingt et un
+    modèles de documents avec publipostage.</p>
+  <p class="pied">Les dossiers de paie restent dans votre navigateur : aucune donnée nominative
+    n’est transmise au serveur, qui ne gère que les accès.</p>
+</section>
+
+<section class="acces">
+  <div class="boite">
+
+    <div class="vol on" id="volConnexion">
+      <h2>Connexion</h2>
+      <p class="aide">Accès réservé. Si vous n’avez pas d’identifiant, demandez-en un à
+        l’administrateur de l’outil.</p>
+      <p class="msg" id="err" hidden></p>
+      <form id="formConnexion" autocomplete="on">
+        <div class="champ">
+          <label for="login">Identifiant</label>
+          <input id="login" name="username" type="text" autocomplete="username" required autofocus>
+        </div>
+        <div class="champ">
+          <label for="mdp">Mot de passe</label>
+          <input id="mdp" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" id="btn">Se connecter</button>
+      </form>
+    </div>
+
+    <div class="vol" id="volChangement">
+      <h2>Choisissez un mot de passe</h2>
+      <p class="aide">Ce compte utilise encore un mot de passe provisoire. Remplacez-le avant
+        d’entrer dans l’outil.</p>
+      <p class="msg" id="err2" hidden></p>
+      <form id="formChangement" autocomplete="on">
+        <div class="champ">
+          <label for="actuel">Mot de passe provisoire</label>
+          <input id="actuel" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="champ">
+          <label for="nouveau">Nouveau mot de passe</label>
+          <input id="nouveau" type="password" autocomplete="new-password" minlength="10" required>
+        </div>
+        <div class="champ">
+          <label for="confirme">Confirmation</label>
+          <input id="confirme" type="password" autocomplete="new-password" minlength="10" required>
+        </div>
+        <button type="submit" id="btn2">Enregistrer et continuer</button>
+      </form>
+      <p class="note">Dix caractères au minimum. Une phrase dont vous vous souvenez vaut mieux
+        qu’une suite de symboles que vous noterez quelque part.</p>
+    </div>
+
+  </div>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const dire = (el, t) => { el.textContent = t; el.hidden = !t; };
+
+$('formConnexion').addEventListener('submit', async e => {
+  e.preventDefault();
+  dire($('err'), '');
+  $('btn').disabled = true; $('btn').textContent = 'Connexion…';
+  try {
+    const r = await fetch('/api/connexion', {
+      method: 'POST', headers: {'content-type':'application/json'},
+      body: JSON.stringify({ login: $('login').value, mdp: $('mdp').value })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.erreur || 'Connexion refusée.');
+    if (d.doitChanger) {
+      $('actuel').value = $('mdp').value;
+      $('volConnexion').classList.remove('on');
+      $('volChangement').classList.add('on');
+      $('nouveau').focus();
+    } else {
+      location.href = '/';
+    }
+  } catch (ex) {
+    dire($('err'), ex.message);
+  } finally {
+    $('btn').disabled = false; $('btn').textContent = 'Se connecter';
+  }
+});
+
+$('formChangement').addEventListener('submit', async e => {
+  e.preventDefault();
+  dire($('err2'), '');
+  if ($('nouveau').value !== $('confirme').value)
+    return dire($('err2'), 'Les deux saisies ne correspondent pas.');
+  $('btn2').disabled = true;
+  try {
+    const r = await fetch('/api/mon-mot-de-passe', {
+      method: 'POST', headers: {'content-type':'application/json'},
+      body: JSON.stringify({ actuel: $('actuel').value, nouveau: $('nouveau').value })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.erreur || 'Changement refusé.');
+    location.href = '/';
+  } catch (ex) {
+    dire($('err2'), ex.message);
+    $('btn2').disabled = false;
+  }
+});
+</script>
+</body>
+</html>
