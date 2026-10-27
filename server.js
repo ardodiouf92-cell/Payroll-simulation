@@ -218,12 +218,18 @@ async function ecrireReglage(cle, valeur, par) {
 }
 const CLE_IA = 'cle_api_anthropic';
 
-/* La clé est relue à chaque appel mais gardée quelques secondes : l'assistant
+/* ANTHROPIC_API_KEY l'emporte sur toute clé enregistrée en base : quand on
+   décide de tenir le secret dans les variables d'environnement, une valeur
+   oubliée en base ne doit pas continuer à servir en silence.
+   La clé est relue à chaque appel mais gardée quelques secondes : l'assistant
    enchaîne les requêtes, et rien ne justifie d'interroger la base à chacune. */
+const CLE_ENV = () => (process.env.ANTHROPIC_API_KEY || '').trim() || null;
 let cacheCle = { valeur: undefined, jusqua: 0 };
 async function cleIA() {
+  const env = CLE_ENV();
+  if (env) return env;
   if (Date.now() < cacheCle.jusqua) return cacheCle.valeur;
-  const v = (await lireReglage(CLE_IA)) || process.env.ANTHROPIC_API_KEY || null;
+  const v = await lireReglage(CLE_IA);
   cacheCle = { valeur: v, jusqua: Date.now() + 15000 };
   return v;
 }
@@ -371,8 +377,25 @@ const BANDEAU = `
 
     /* La clé vit sur le serveur : l'assistant passe par le relais, et aucune
        clé ne transite par le navigateur. */
-    if (u.ia && (u.droits || []).indexOf('assistant') >= 0)
-      window.PS_CONFIG = Object.assign({}, window.PS_CONFIG, { proxy: '/api/ia' });
+    if (u.ia) {
+      if ((u.droits || []).indexOf('assistant') >= 0)
+        window.PS_CONFIG = Object.assign({}, window.PS_CONFIG, { proxy: '/api/ia' });
+      /* Le relais ignore la clé saisie ici : laisser le champ visible ferait
+         croire qu'il sert à quelque chose, et inviterait chacun à coller la
+         sienne dans un outil qui ne la lira pas. */
+      var champ = document.getElementById('iaKey');
+      var bloc  = champ && champ.closest('.field');
+      if (bloc) {
+        /* L'attribut hidden ne masque rien face au display:flex du champ :
+           il faut écraser la propriété. */
+        bloc.style.display = 'none';
+        var note = bloc.nextElementSibling;
+        if (note && note.classList.contains('hint'))
+          note.textContent = 'La clé est détenue par le serveur et partagée par tous les accès : '
+            + 'rien n\u2019est à saisir ici. Adressez-vous à l\u2019administrateur si l\u2019assistant '
+            + 'ne répond pas.';
+      }
+    }
 
     /* Les notes de bas d'écran — charte, portée des modèles, avertissement
        général — s'adressent à qui administre l'outil, pas à qui s'en sert. */
@@ -556,7 +579,8 @@ app.get('/api/utilisateurs', exigeSession, exigeAdmin, route(async (_req, res) =
   const cle = await cleIA();
   res.json({ utilisateurs: r.rows.map(vue), base: 'postgres', modules: MODULES,
              ia: { definie: Boolean(cle), apercu: cle ? '…' + cle.slice(-4) : null,
-                   parVariable: Boolean(!(await lireReglage(CLE_IA)) && process.env.ANTHROPIC_API_KEY) } });
+                   parVariable: Boolean(CLE_ENV()),
+                   enBase: Boolean(await lireReglage(CLE_IA)) } });
 }));
 
 app.post('/api/utilisateurs', exigeSession, exigeAdmin, route(async (req, res) => {
@@ -639,6 +663,13 @@ app.delete('/api/utilisateurs/:login', exigeSession, exigeAdmin, route(async (re
 
 /* ─── clé API partagée ─── */
 app.put('/api/cle-ia', exigeSession, exigeAdmin, route(async (req, res) => {
+  /* Refuser plutôt qu'enregistrer une valeur que la variable d'environnement
+     masquerait : une clé qu'on croit active et qui ne sert pas est pire
+     qu'une saisie refusée. */
+  if (CLE_ENV())
+    return res.status(409).json({ erreur: 'La clé est fournie par la variable d\u2019environnement ' +
+      'ANTHROPIC_API_KEY, qui l\u2019emporte sur toute saisie. Modifiez-la dans Render, ou retirez ' +
+      'la variable pour reprendre la main ici.' });
   const cle = String(req.body.cle || '').trim();
   if (!cle) return res.status(400).json({ erreur: 'Clé vide.' });
   if (!/^sk-[A-Za-z0-9_\-]{20,}$/.test(cle))
@@ -651,7 +682,7 @@ app.put('/api/cle-ia', exigeSession, exigeAdmin, route(async (req, res) => {
 app.delete('/api/cle-ia', exigeSession, exigeAdmin, route(async (_req, res) => {
   await q('DELETE FROM reglages WHERE cle = $1', [CLE_IA]);
   oublierCle();
-  res.json({ ok: true });
+  res.json({ ok: true, parVariable: Boolean(CLE_ENV()) });
 }));
 
 /* Relais vers Anthropic. La clé ne quitte jamais le serveur, et le droit

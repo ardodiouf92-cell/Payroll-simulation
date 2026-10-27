@@ -59,6 +59,7 @@ en démarrage, `/sante` en *health check*, et recopiez la chaîne de connexion
 | `ADMIN_LOGIN` | L'identifiant du premier administrateur. |
 | `ADMIN_MDP` | Son mot de passe de départ. Laissez vide et le serveur en tirera un au sort, visible une seule fois dans les journaux de démarrage. |
 | `ADMIN_NOM` | Son nom affiché. Facultatif. |
+| `ANTHROPIC_API_KEY` | La clé de l'assistant, partagée par tous les comptes dont le module est ouvert. Elle l'emporte sur toute clé saisie dans l'interface. |
 | `COMPTES` | Facultatif : amorcer plusieurs comptes d'un coup à la toute première mise en service (voir plus bas). |
 | `PG_POOL_MAX` | Nombre maximal de connexions à la base. Cinq par défaut, ce qui convient aux petits plans. |
 
@@ -141,18 +142,27 @@ qu'il soit immédiat, fermez les sessions de la personne.
 
 ### La clé API de l'assistant
 
-Une seule clé pour tout le monde, saisie par un administrateur dans la gestion
-des accès. Elle est enregistrée en base et **ne ressort jamais** : l'interface
-n'en montre que les quatre derniers caractères. L'assistant de l'outil passe
-alors par un relais (`POST /api/ia`) qui ajoute la clé côté serveur — aucune
-clé ne transite par les navigateurs.
+Une seule clé pour tout le monde. Elle reste sur le serveur et **ne ressort
+jamais** : l'interface n'en montre que les quatre derniers caractères.
+L'assistant de l'outil passe par un relais (`POST /api/ia`) qui ajoute la clé
+côté serveur — aucune clé ne transite par les navigateurs, et le relais refuse
+les comptes dont le module Assistant est fermé.
 
-Sans clé enregistrée, l'outil retrouve son comportement d'origine : chacun
-saisit la sienne dans les réglages de l'onglet Assistant.
+Deux emplacements possibles, et c'est **la variable d'environnement qui fait
+autorité** :
 
-La variable d'environnement `ANTHROPIC_API_KEY` sert de solution de repli si
-vous préférez tenir la clé hors de la base ; une clé saisie dans l'interface
-prend le pas sur elle.
+| Emplacement | Quand l'utiliser |
+|---|---|
+| `ANTHROPIC_API_KEY` | Le choix recommandé. La clé vit avec les autres secrets du service, hors de la base, et se change dans le tableau de bord Render sans toucher aux données. |
+| Le champ de `/admin` | À défaut de variable. La clé est enregistrée dans la table `reglages`. |
+
+Tant que `ANTHROPIC_API_KEY` est renseignée, le champ de l'interface est grisé
+et toute saisie est refusée avec un message explicite : une clé qu'on croit
+active et qui ne sert pas vaut moins qu'une saisie refusée. Si une clé traîne
+encore en base, l'interface le signale et propose de la retirer.
+
+Sans aucune clé, l'outil retrouve son comportement d'origine : chacun saisit la
+sienne dans les réglages de l'onglet Assistant.
 
 Le dernier administrateur actif ne peut être ni suspendu, ni rétrogradé, ni
 supprimé : sans lui, plus personne ne pourrait créer de compte.

@@ -90,7 +90,8 @@ button{font:inherit;font-size:12.5px;border-radius:4px;cursor:pointer;padding:8p
     <h2>Clé API de l’assistant</h2>
     <p class="aide">Une seule clé pour tout le monde. Elle reste sur le serveur : les navigateurs
       ne la voient jamais, et l’assistant passe par un relais qui refuse les comptes auxquels le
-      module n’est pas ouvert. Sans clé enregistrée, chacun doit saisir la sienne.</p>
+      module n’est pas ouvert. Deux emplacements possibles : la variable d’environnement
+      <code>ANTHROPIC_API_KEY</code>, qui fait autorité, ou le champ ci-dessous à défaut.</p>
     <p class="etat-cle" id="etatCle">—</p>
     <form id="formCle" class="cle">
       <div>
@@ -99,7 +100,7 @@ button{font:inherit;font-size:12.5px;border-radius:4px;cursor:pointer;padding:8p
       </div>
       <div style="flex:0 0 auto;display:flex;gap:8px">
         <button type="submit" class="b1">Enregistrer</button>
-        <button type="button" class="b3" id="supprCle">Retirer</button>
+        <button type="button" class="b3" id="supprCle" hidden>Retirer la clé en base</button>
       </div>
     </form>
   </div>
@@ -197,14 +198,35 @@ function cases(hote, coches, prefixe) {
 const lus = hote => [...hote.querySelectorAll('input:checked')].map(i => i.value);
 
 function etatCle(ia) {
-  if (!ia || !ia.definie) {
-    $('etatCle').innerHTML = '<b>Aucune clé enregistrée.</b> L’assistant reste inerte tant que ' +
-      'chacun n’a pas saisi la sienne dans les réglages de l’outil.';
+  const champ = $('cleIa'), bSuppr = $('supprCle');
+  const bOk = $('formCle').querySelector('button[type=submit]');
+
+  /* Quand la clé vient des variables d'environnement, elle se règle dans
+     Render : laisser le formulaire actif ferait croire à une saisie utile. */
+  if (ia && ia.parVariable) {
+    $('etatCle').innerHTML = `<b>Clé fournie par la variable d’environnement</b> ` +
+      `<code>ANTHROPIC_API_KEY</code> — ${esc(ia.apercu)}. Elle se modifie dans le tableau de ` +
+      `bord Render, et l’emporte sur toute saisie faite ici.` +
+      (ia.enBase ? ' Une clé subsiste en base : elle ne sert plus tant que la variable existe, ' +
+                   'vous pouvez la retirer.' : '');
+    champ.disabled = true; bOk.disabled = true;
+    champ.placeholder = 'réglée dans Render';
+    bSuppr.hidden = !ia.enBase;
     return;
   }
-  $('etatCle').innerHTML = `<b>Clé en place</b> — ${esc(ia.apercu)}` +
-    (ia.parVariable ? ' , fournie par la variable d’environnement <code>ANTHROPIC_API_KEY</code>.'
-                    : ' , enregistrée en base. Saisir une nouvelle clé remplace celle-ci.');
+  champ.disabled = false; bOk.disabled = false;
+  champ.placeholder = 'sk-ant-…';
+
+  if (!ia || !ia.definie) {
+    $('etatCle').innerHTML = '<b>Aucune clé.</b> L’assistant reste inerte tant que chacun ' +
+      'n’a pas saisi la sienne dans les réglages de l’outil. Renseignez une clé ci-dessous, ' +
+      'ou la variable <code>ANTHROPIC_API_KEY</code> dans Render.';
+    bSuppr.hidden = true;
+    return;
+  }
+  $('etatCle').innerHTML = `<b>Clé en place</b> — ${esc(ia.apercu)}, enregistrée en base. ` +
+    `Saisir une nouvelle clé remplace celle-ci.`;
+  bSuppr.hidden = false;
 }
 
 function rendre(us) {
@@ -337,11 +359,14 @@ $('formCle').addEventListener('submit', async e => {
 });
 
 $('supprCle').addEventListener('click', async () => {
-  if (!confirm('Retirer la clé enregistrée ?\n\nL’assistant redeviendra inerte pour tout le monde.')) return;
+  if (!confirm('Retirer la clé enregistrée en base ?')) return;
   dire($('alerte'), ''); dire($('info'), '');
   try {
-    await appel('/api/cle-ia', { method: 'DELETE' });
-    dire($('info'), 'Clé retirée.');
+    const d = await appel('/api/cle-ia', { method: 'DELETE' });
+    dire($('info'), d.parVariable
+      ? 'Clé retirée de la base. La variable d’environnement reste en place : '
+        + 'l’assistant continue de fonctionner.'
+      : 'Clé retirée. L’assistant redevient inerte pour tout le monde.');
     charger();
   } catch (ex) { dire($('alerte'), ex.message); }
 });

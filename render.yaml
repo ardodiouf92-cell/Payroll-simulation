@@ -27,3 +27,5 @@ services:
         sync: false
       - key: ADMIN_NOM
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false       # la clé de l'assistant, partagée par tous les comptes
