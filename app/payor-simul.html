@@ -379,6 +379,34 @@ table.cum td.lab{text-align:left;font-weight:700;color:var(--ink)}
 .stat{background:var(--surface);border:1px solid var(--rule-strong);border-radius:0;padding:14px 16px}
 .stat .lab{font-size:11.5px;letter-spacing:.01em;color:var(--ink-faint);font-weight:700}
 .stat .v{font-family:var(--font);font-size:22px;font-weight:500;color:var(--blue-700);margin-top:4px}
+/* Le score de conformité : une note, un verdict, et de quoi les vérifier. */
+.score{display:flex;align-items:center;gap:22px;background:var(--surface);
+  border:1px solid var(--rule-strong);border-left:4px solid var(--ink-faint);
+  padding:16px 20px;margin-bottom:14px;flex-wrap:wrap}
+.score.v-ok{border-left-color:var(--ok,#1B7F4B)}
+.score.v-reserve{border-left-color:var(--blue-600)}
+.score.v-corriger{border-left-color:var(--warn,#B4690E)}
+.score.v-non{border-left-color:var(--danger)}
+.score-note{font-family:var(--font);font-size:40px;font-weight:500;line-height:1;
+  color:var(--blue-700);white-space:nowrap}
+.score-note small{font-size:17px;color:var(--ink-faint);font-weight:400}
+.score.v-ok .score-note{color:var(--ok,#1B7F4B)}
+.score.v-corriger .score-note{color:var(--warn,#B4690E)}
+.score.v-non .score-note{color:var(--danger)}
+.score-txt{flex:1 1 300px;min-width:0}
+.score-verdict{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.score-sous{font-size:11.5px;color:var(--ink-faint);line-height:1.55}
+.score-jauge{flex:1 1 180px;height:7px;background:var(--rule);border-radius:4px;overflow:hidden}
+.score-jauge i{display:block;height:100%;background:var(--blue-600);border-radius:4px}
+.score.v-ok .score-jauge i{background:var(--ok,#1B7F4B)}
+.score.v-corriger .score-jauge i{background:var(--warn,#B4690E)}
+.score.v-non .score-jauge i{background:var(--danger)}
+.score-tab{width:100%;border-collapse:collapse;margin-top:12px;font-size:11.5px}
+.score-tab th,.score-tab td{padding:5px 9px;border-bottom:1px solid var(--rule);text-align:right}
+.score-tab th:first-child,.score-tab td:first-child{text-align:left}
+.score-tab th{color:var(--ink-faint);font-weight:700}
+@media print{.score{break-inside:avoid}}
+
 .dropzone{border:2px dashed var(--rule-strong);background:var(--surface);border-radius:0;padding:28px;
   text-align:center;transition:.15s}
 .dropzone.over{border-color:var(--blue-600);background:var(--blue-50)}
@@ -1386,28 +1414,30 @@ button.act{border-radius:5px}
     </div>
 
     <div class="das-drops">
-      <div class="dropzone" id="dropDas1">
-        <h3>Page 1 — État récapitulatif</h3>
-        <p>Versements mensuels : montant global, IR, TRIMF, CFCE, date et numéro de quittance.</p>
-        <div class="actions" style="justify-content:center">
-          <button class="act" type="button" id="pickDas1">Choisir un fichier</button>
-        </div>
-        <input type="file" id="fileDas1" accept=".csv,.xlsx,.xls,.xlsm" hidden>
-        <div class="das-etat" id="etatDas1">Aucun fichier chargé</div>
-      </div>
-      <div class="dropzone" id="dropDas2">
-        <h3>Page 2 — État annuel nominatif</h3>
+      <div class="dropzone" id="dropDasNomin">
+        <h3>Page 1 — État annuel nominatif</h3>
         <p>Une ligne par salarié : identité, situation de famille, rémunération et retenues.</p>
         <div class="actions" style="justify-content:center">
-          <button class="act" type="button" id="pickDas2">Choisir un fichier</button>
+          <button class="act" type="button" id="pickDasNomin">Choisir un fichier</button>
         </div>
-        <input type="file" id="fileDas2" accept=".csv,.xlsx,.xls,.xlsm" hidden>
-        <div class="das-etat" id="etatDas2">Aucun fichier chargé</div>
+        <input type="file" id="fileDasNomin" accept=".csv,.xlsx,.xls,.xlsm" hidden>
+        <div class="das-etat" id="etatDasNomin">Aucun fichier chargé</div>
+      </div>
+      <div class="dropzone" id="dropDasRecap">
+        <h3>Page 2 — État récapitulatif</h3>
+        <p>Versements mensuels : montant global, IR, TRIMF, CFCE, date et numéro de quittance.</p>
+        <div class="actions" style="justify-content:center">
+          <button class="act" type="button" id="pickDasRecap">Choisir un fichier</button>
+        </div>
+        <input type="file" id="fileDasRecap" accept=".csv,.xlsx,.xls,.xlsm" hidden>
+        <div class="das-etat" id="etatDasRecap">Aucun fichier chargé</div>
       </div>
     </div>
     <div id="repDas"></div>
 
-    <div class="mass-head" style="margin-top:20px">
+    <div id="dasScore" style="margin-top:20px"></div>
+
+    <div class="mass-head">
       <div class="stat"><div class="lab">Contrôles exécutés</div><div class="v" id="dasNb">—</div></div>
       <div class="stat"><div class="lab">Bloquants</div><div class="v" id="dasBloq" style="color:var(--danger)">—</div></div>
       <div class="stat"><div class="lab">Anomalies importantes</div><div class="v" id="dasImp">—</div></div>
@@ -1567,7 +1597,9 @@ button.act{border-radius:5px}
           <button class="act ghost" type="button" id="btnDocCopy">Copier le texte</button>
         </div>
 
-        <details class="publi" id="publiBoite">
+        <!-- Déplié d'office : une fonction de cette portée ne se cache pas
+             derrière un repli. Sans effectif, le bloc explique quoi faire. -->
+        <details class="publi" id="publiBoite" open>
           <summary class="publi-tete">
             <span>Publipostage — produire ce modèle pour plusieurs salariés</span>
             <span class="publi-n" id="publiN">0</span>
@@ -3450,13 +3482,16 @@ $('lnkAssist').addEventListener('click', () => aller('assistant'));
 
 
 /* ═════════ DÉCLARATION ANNUELLE DES SALAIRES ═════════
-   Deux états à rapprocher : la page 1 récapitule les douze versements mensuels,
-   la page 2 détaille l'effectif ligne par ligne. Les contrôles recalculent les
+   Deux états à rapprocher : la page 1 détaille l'effectif ligne par ligne,
+   la page 2 récapitule les douze versements mensuels. Les contrôles recalculent les
    retenues d'après le barème de l'onglet « Barème et taux », de sorte qu'un
    changement de loi de finances se répercute ici sans modification du code.
    Les deux fichiers restent en mémoire : ils ne sont pas enregistrés au dossier. */
 
-const DAS = {p1:null, p2:null, f1:'', f2:'', res:[]};
+/* Les deux états portent le nom de leur contenu, et non leur numéro de page :
+   celui-ci s'est déjà inversé une fois, le contenu ne bougera pas.
+   Page 1 du formulaire = état annuel nominatif ; page 2 = état récapitulatif. */
+const DAS = {recap:null, nomin:null, fRecap:'', fNomin:'', res:[]};
 const DAS_MOIS = ['JANVIER','FEVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOUT',
   'SEPTEMBRE','OCTOBRE','NOVEMBRE','DECEMBRE'];
 const DAS_CIV = {H:['M.'], F:['MME','MLLE']};
@@ -3545,21 +3580,21 @@ function dasPartsTrimf(r){
 
 /* ─── contrôles ─── */
 function dasControler(){
-  const R = [], p1 = DAS.p1, p2 = DAS.p2;
+  const R = [], recap = DAS.recap, nomin = DAS.nomin;   /* page 2, page 1 */
   const an = parseInt($('dasExercice').value) || new Date().getFullYear()-1;
   /* `detail` sert aux contrôles dont le résultat mérite d'être lu même quand tout
      concorde : un rapprochement de totaux se vérifie, il ne se croit pas. */
   const ctrl = (code, nom, desc, sev, faits, cols, detail) =>
     R.push({code, nom, desc, sev, faits, cols:cols||['Ligne','Constat'], detail});
 
-  /* ══ PAGE 1 ══ */
-  if(p1){
-    const L = p1.lignes.filter(r => dtxt(r.salaire_du_mois).toUpperCase() !== 'AJUSTEMENT');
+  /* ══ PAGE 2 — ÉTAT RÉCAPITULATIF ══ */
+  if(recap){
+    const L = recap.lignes.filter(r => dtxt(r.salaire_du_mois).toUpperCase() !== 'AJUSTEMENT');
     const parMois = m => L.find(r => slug(r.salaire_du_mois) === slug(m));
 
     /* 1. les douze mois sont présents */
-    ctrl('P1-01', 'Présence des douze mois', 'Chaque mois de l’exercice doit figurer sur l’état récapitulatif.',
-      'bloquant', DAS_MOIS.filter(m => !parMois(m)).map(m => [m, 'mois absent de la page 1']),
+    ctrl('P2-01', 'Présence des douze mois', 'Chaque mois de l’exercice doit figurer sur l’état récapitulatif.',
+      'bloquant', DAS_MOIS.filter(m => !parMois(m)).map(m => [m, 'mois absent de la page 2']),
       ['Mois','Constat']);
 
     /* 2. délais de versement */
@@ -3572,7 +3607,7 @@ function dasControler(){
       const j = Math.round((d - lim) / 86400000);
       if(j > 0) retards.push([m, `${j} jour${j>1?'s':''} de retard`, dasJour(d), dasJour(lim)]);
     });
-    ctrl('P1-02', 'Délai de versement', 'Le versement est dû au plus tard le 15 du mois suivant, reporté au jour ouvrable suivant lorsque le 15 tombe un samedi ou un dimanche.',
+    ctrl('P2-02', 'Délai de versement', 'Le versement est dû au plus tard le 15 du mois suivant, reporté au jour ouvrable suivant lorsque le 15 tombe un samedi ou un dimanche.',
       'important', retards, ['Mois','Constat','Versé le','Échéance']);
 
     /* 3. versement antérieur à la fin du mois déclaré */
@@ -3583,18 +3618,18 @@ function dasControler(){
       const fin = new Date(an, i+1, 0);
       if(d < fin) avance.push([m, 'versement antérieur à la fin du mois déclaré', dasJour(d)]);
     });
-    ctrl('P1-03', 'Chronologie des versements', 'Un versement daté avant la fin du mois déclaré signale le plus souvent une date recopiée d’une ligne voisine.',
+    ctrl('P2-03', 'Chronologie des versements', 'Un versement daté avant la fin du mois déclaré signale le plus souvent une date recopiée d’une ligne voisine.',
       'verif', avance, ['Mois','Constat','Versé le']);
 
     /* 4. quittances */
-    ctrl('P1-04', 'Numéro de quittance', 'Chaque versement doit porter le numéro de la quittance délivrée par le Trésor.',
+    ctrl('P2-04', 'Numéro de quittance', 'Chaque versement doit porter le numéro de la quittance délivrée par le Trésor.',
       'bloquant', L.filter(r => !dtxt(r.numero_quittance)).map(r => [dtxt(r.salaire_du_mois), 'numéro de quittance absent']),
       ['Mois','Constat']);
 
     const vus = {}, dbl = [];
     L.forEach(r => { const q = dtxt(r.numero_quittance).toUpperCase(); if(!q) return;
       if(vus[q]) dbl.push([dtxt(r.salaire_du_mois), `même quittance que ${vus[q]}`, q]); else vus[q] = dtxt(r.salaire_du_mois); });
-    ctrl('P1-05', 'Unicité des quittances', 'Deux mois ne peuvent pas partager le même numéro de quittance.',
+    ctrl('P2-05', 'Unicité des quittances', 'Deux mois ne peuvent pas partager le même numéro de quittance.',
       'important', dbl, ['Mois','Constat','Quittance']);
 
     /* 5. montant global = IR + TRIMF + CFCE */
@@ -3603,21 +3638,21 @@ function dasControler(){
       return Math.abs(d-a) > DAS_TOL
         ? [dtxt(r.salaire_du_mois), 'le montant global ne correspond pas à la somme des trois retenues',
            F(d), F(a), F(d-a)] : null; }).filter(Boolean);
-    ctrl('P1-06', 'Composition du versement', 'Le montant global versé doit égaler la somme de l’IR, du TRIMF et de la CFCE du mois.',
+    ctrl('P2-06', 'Composition du versement', 'Le montant global versé doit égaler la somme de l’IR, du TRIMF et de la CFCE du mois.',
       'bloquant', glob, ['Mois','Constat','Déclaré','Somme des retenues','Écart']);
 
   }
 
   /* ══ RAPPROCHEMENT DES DEUX PAGES ══
-     Chaque colonne de la page 1 est totalisée sur les douze mois — la ligne
+     Chaque colonne de la page 2 est totalisée sur les douze mois — la ligne
      AJUSTEMENT, qui n'est qu'un report, est écartée pour ne pas compter deux
-     fois — et confrontée au total de la colonne correspondante de la page 2.
+     fois — et confrontée au total de la colonne correspondante de la page 1.
      Le montant global n'ayant pas de colonne jumelle, il se compare à la somme
      des trois retenues individuelles. */
-  if(p1 && p2){
-    const L = p1.lignes.filter(r => dtxt(r.salaire_du_mois).toUpperCase() !== 'AJUSTEMENT');
+  if(recap && nomin){
+    const L = recap.lignes.filter(r => dtxt(r.salaire_du_mois).toUpperCase() !== 'AJUSTEMENT');
     const s1 = k => L.reduce((t,r) => t + dnum(r[k]), 0);
-    const s2 = k => p2.lignes.reduce((t,r) => t + dnum(r[k]), 0);
+    const s2 = k => nomin.lignes.reduce((t,r) => t + dnum(r[k]), 0);
     const ec = [], det = [];
     const paires = [
       ['IR', s1('retenue_ir'), s2('irbareme_employe')],
@@ -3633,14 +3668,14 @@ function dasControler(){
       det.push(l);
       if(!ok) ec.push(l);
     });
-    ctrl('RAP-01', 'Totaux par colonne, page 1 contre page 2',
+    ctrl('RAP-01', 'Totaux par colonne, page 2 contre page 1',
       'Le total de chaque colonne de l’état récapitulatif doit égaler le total de la colonne correspondante de l’état nominatif. Le montant global se compare à la somme des trois retenues.',
-      'bloquant', ec, ['Rubrique','Constat','Total page 1','Total page 2','Écart'], det);
+      'bloquant', ec, ['Rubrique','Constat','Total page 2','Total page 1','Écart'], det);
   }
 
-  /* ══ PAGE 2 ══ */
-  if(p2){
-    const E = p2.lignes;
+  /* ══ PAGE 1 — ÉTAT ANNUEL NOMINATIF ══ */
+  if(nomin){
+    const E = nomin.lignes;
     const nomC = r => (dtxt(r.prenom_employe)+' '+dtxt(r.nom_employe)).trim() || 'sans nom';
     const ref = r => `l. ${r._l} · ${dtxt(r.matricule_employe)}`;
 
@@ -3652,15 +3687,15 @@ function dasControler(){
         else vus[v] = r._l; });
       return out;
     };
-    ctrl('P2-01', 'Unicité du matricule', 'Un matricule ne peut désigner qu’un salarié.',
+    ctrl('P1-01', 'Unicité du matricule', 'Un matricule ne peut désigner qu’un salarié.',
       'bloquant', dbl('matricule_employe','matricule'), ['Ligne','Constat','Salarié','Valeur']);
-    ctrl('P2-02', 'Unicité de la pièce d’identité', 'Deux salariés ne peuvent pas porter le même numéro de pièce.',
+    ctrl('P1-02', 'Unicité de la pièce d’identité', 'Deux salariés ne peuvent pas porter le même numéro de pièce.',
       'bloquant', dbl('numero_piece_employe','numéro de pièce'), ['Ligne','Constat','Salarié','Valeur']);
 
     const vusN = {}, hom = [];
     E.forEach(r => { const k = slug(dtxt(r.nom_employe)+' '+dtxt(r.prenom_employe)); if(!k) return;
       if(vusN[k]) hom.push([ref(r), `même nom et prénom que la ligne ${vusN[k]}`, nomC(r)]); else vusN[k] = r._l; });
-    ctrl('P2-03', 'Homonymes', 'Deux salariés de même nom et prénom sont admis, mais méritent une vérification : il peut s’agir d’un doublon saisi sous deux matricules.',
+    ctrl('P1-03', 'Homonymes', 'Deux salariés de même nom et prénom sont admis, mais méritent une vérification : il peut s’agir d’un doublon saisi sous deux matricules.',
       'verif', hom, ['Ligne','Constat','Salarié']);
 
     /* champs obligatoires */
@@ -3670,7 +3705,7 @@ function dasControler(){
     const vides = [];
     E.forEach(r => { const m = oblig.filter(([k]) => !dtxt(r[k])).map(([,l]) => l);
       if(m.length) vides.push([ref(r), 'champ(s) non renseigné(s) : '+m.join(', '), nomC(r)]); });
-    ctrl('P2-04', 'Champs obligatoires', 'Identité, sexe, nationalité et situation matrimoniale conditionnent les contrôles suivants.',
+    ctrl('P1-04', 'Champs obligatoires', 'Identité, sexe, nationalité et situation matrimoniale conditionnent les contrôles suivants.',
       'bloquant', vides, ['Ligne','Constat','Salarié']);
 
     /* nationalité et pièce */
@@ -3687,13 +3722,13 @@ function dasControler(){
       } else if(nat && typ.includes('NATIONALE'))
         piece.push([ref(r), `nationalité ${nat} associée à une carte nationale d’identité sénégalaise`, nomC(r), typ]);
     });
-    ctrl('P2-05', 'Nationalité et pièce d’identité', 'Le Sénégalais est identifié par un numéro d’identification nationale de 13 ou 14 chiffres ; l’étranger relève d’un passeport ou d’une carte CEDEAO.',
+    ctrl('P1-05', 'Nationalité et pièce d’identité', 'Le Sénégalais est identifié par un numéro d’identification nationale de 13 ou 14 chiffres ; l’étranger relève d’un passeport ou d’une carte CEDEAO.',
       'important', piece, ['Ligne','Constat','Salarié','Valeur']);
 
     const typHors = E.filter(r => dtxt(r.type_piece_employe) &&
         !DAS_PIECES.includes(dtxt(r.type_piece_employe).toUpperCase()))
       .map(r => [ref(r), 'libellé absent de la nomenclature officielle', nomC(r), dtxt(r.type_piece_employe)]);
-    ctrl('P2-06', 'Nomenclature des pièces', 'Le type de pièce doit reprendre à l’identique un libellé de la nomenclature : une inversion de mots fait échouer le dépôt.',
+    ctrl('P1-06', 'Nomenclature des pièces', 'Le type de pièce doit reprendre à l’identique un libellé de la nomenclature : une inversion de mots fait échouer le dépôt.',
       'important', typHors, ['Ligne','Constat','Salarié','Valeur']);
 
     /* sexe et civilité */
@@ -3701,7 +3736,7 @@ function dasControler(){
         cv = dtxt(r.civilite_employe).toUpperCase();
       return sx && cv && DAS_CIV[sx] && !DAS_CIV[sx].includes(cv); })
       .map(r => [ref(r), `sexe ${dtxt(r.sexe_employe)} et civilité ${dtxt(r.civilite_employe)}`, nomC(r)]);
-    ctrl('P2-07', 'Cohérence du sexe et de la civilité', 'La civilité M. correspond au sexe H, MME et MLLE au sexe F.',
+    ctrl('P1-07', 'Cohérence du sexe et de la civilité', 'La civilité M. correspond au sexe H, MME et MLLE au sexe F.',
       'important', civ, ['Ligne','Constat','Salarié']);
 
     /* épouses */
@@ -3712,7 +3747,7 @@ function dasControler(){
       if(n > 0 && sx === 'F') ep.push([ref(r), 'nombre d’épouses renseigné pour une femme', nomC(r), n]);
       else if(n > 0 && sit !== 'M') ep.push([ref(r), `nombre d’épouses renseigné pour une situation « ${sit} »`, nomC(r), n]);
     });
-    ctrl('P2-08', 'Nombre d’épouses', 'La rubrique ne concerne que les hommes mariés.',
+    ctrl('P1-08', 'Nombre d’épouses', 'La rubrique ne concerne que les hommes mariés.',
       'verif', ep, ['Ligne','Constat','Salarié','Valeur']);
 
     /* période de travail */
@@ -3720,7 +3755,7 @@ function dasControler(){
       .map(r => [ref(r), dnum(r.periodetravail_employe) > 12
         ? 'période supérieure à douze mois' : 'période nulle ou négative',
         nomC(r), F2(dnum(r.periodetravail_employe))]);
-    ctrl('P2-09', 'Période de travail', 'La période déclarée est comprise entre un jour et douze mois. Au-delà, les retenues annualisées sont fausses.',
+    ctrl('P1-09', 'Période de travail', 'La période déclarée est comprise entre un jour et douze mois. Au-delà, les retenues annualisées sont fausses.',
       'important', per, ['Ligne','Constat','Salarié','Mois']);
 
     /* nombre de parts */
@@ -3739,13 +3774,13 @@ function dasControler(){
       parts.push([ref(r), `situation ${sit||'—'} et ${enf} enfant(s) : ${F2(att)} part(s) attendue(s)`,
         nomC(r), F2(d), F2(att), F2(d-att)]);
     });
-    ctrl('P2-10', 'Nombre de parts', 'Une part de base, une demi-part pour le conjoint et une demi-part par enfant à charge, dans la limite de cinq parts. Une déclaration au-delà de l’attendu n’est pas relevée lorsque la TRIMF est comptée pour deux parts, le conjoint étant alors sans emploi.',
+    ctrl('P1-10', 'Nombre de parts', 'Une part de base, une demi-part pour le conjoint et une demi-part par enfant à charge, dans la limite de cinq parts. Une déclaration au-delà de l’attendu n’est pas relevée lorsque la TRIMF est comptée pour deux parts, le conjoint étant alors sans emploi.',
       'important', parts, ['Ligne','Constat','Salarié','Déclaré','Attendu','Écart']);
 
     const partsF = E.filter(r => { const d = dnum(r.nbredepart_employe);
         return d > 5 || (d*2) % 1 !== 0 || d < 1; })
       .map(r => [ref(r), 'valeur hors barème : les parts vont de 1 à 5 par demi-point', nomC(r), F2(dnum(r.nbredepart_employe))]);
-    ctrl('P2-11', 'Forme du nombre de parts', 'Le barème ne connaît que des demi-parts, de une à cinq.',
+    ctrl('P1-11', 'Forme du nombre de parts', 'Le barème ne connaît que des demi-parts, de une à cinq.',
       'important', partsF, ['Ligne','Constat','Salarié','Déclaré']);
 
     /* total brut */
@@ -3754,7 +3789,7 @@ function dasControler(){
       return Math.abs(d-a) > DAS_TOL
         ? [ref(r), 'le total brut ne correspond pas au salaire augmenté des avantages', nomC(r),
            F(d), F(a), F(d-a)] : null; }).filter(Boolean);
-    ctrl('P2-12', 'Composition du brut', 'Le total brut est la somme du salaire annuel et des avantages en nature.',
+    ctrl('P1-12', 'Composition du brut', 'Le total brut est la somme du salaire annuel et des avantages en nature.',
       'bloquant', brut, ['Ligne','Constat','Salarié','Déclaré','Attendu','Écart']);
 
     /* CFCE */
@@ -3762,7 +3797,7 @@ function dasControler(){
     const cfce = E.map(r => { const d = dnum(r.cfce_employe), a = dnum(r.totalbrut_employe)*txCfce;
       return Math.abs(d-a) > DAS_TOL
         ? [ref(r), `${pct(txCfce)} du brut attendus`, nomC(r), F(d), F(a), F(d-a)] : null; }).filter(Boolean);
-    ctrl('P2-13', 'Contribution forfaitaire', 'La CFCE est assise sur le total brut au taux du barème, sans plafond.',
+    ctrl('P1-13', 'Contribution forfaitaire', 'La CFCE est assise sur le total brut au taux du barème, sans plafond.',
       'important', cfce, ['Ligne','Constat','Salarié','Déclaré','Attendu','Écart']);
 
     /* TRIMF : barème annualisé, proratisé, une ou deux parts */
@@ -3777,7 +3812,7 @@ function dasControler(){
         trimf.push([ref(r), `brut annualisé ${F(b/mois*12)} → palier ${F(base)} sur ${m} mois`,
           nomC(r), F(d), F(c1), F(d-c1)]);
     });
-    ctrl('P2-14', 'Taxe représentative de l’impôt du minimum fiscal', 'Le palier est déterminé sur le brut annualisé puis rapporté aux mois de présence. Le double est admis lorsque le conjoint est sans emploi ; l’écart est alors mesuré contre une part.',
+    ctrl('P1-14', 'Taxe représentative de l’impôt du minimum fiscal', 'Le palier est déterminé sur le brut annualisé puis rapporté aux mois de présence. Le double est admis lorsque le conjoint est sans emploi ; l’écart est alors mesuré contre une part.',
       'important', trimf, ['Ligne','Constat','Salarié','Déclaré','Attendu','Écart']);
 
     /* IR */
@@ -3800,7 +3835,7 @@ function dasControler(){
         ir.push([ref(r), `${F2(parts)} part(s) sur ${F2(mois)} mois`,
           nomC(r), F(d), F(att), F(d-att)]);
     });
-    ctrl('P2-15', 'Impôt sur le revenu', 'Recalcul à partir du brut annualisé, de l’abattement, du barème par tranches et de la réduction pour charges de famille, ramené aux mois de présence.',
+    ctrl('P1-15', 'Impôt sur le revenu', 'Recalcul à partir du brut annualisé, de l’abattement, du barème par tranches et de la réduction pour charges de famille, ramené aux mois de présence.',
       'important', ir, ['Ligne','Constat','Salarié','Déclaré','Recalculé','Écart']);
 
     /* indemnités exonérées */
@@ -3809,11 +3844,11 @@ function dasControler(){
       return d > a + DAS_TOL
         ? [ref(r), `au-delà de ${F(P.transportExo)} par mois de présence`, nomC(r),
            F(d), F(a), F(d-a)] : null; }).filter(Boolean);
-    ctrl('P2-16', 'Indemnités exonérées', 'La fraction exonérée de l’indemnité de transport est plafonnée par mois de présence ; l’excédent est imposable.',
+    ctrl('P1-16', 'Indemnités exonérées', 'La fraction exonérée de l’indemnité de transport est plafonnée par mois de présence ; l’excédent est imposable.',
       'verif', ind, ['Ligne','Constat','Salarié','Déclaré','Plafond','Excédent']);
 
     /* brut nul */
-    ctrl('P2-17', 'Rémunération déclarée', 'Un salarié figurant à l’état annuel doit avoir perçu une rémunération.',
+    ctrl('P1-17', 'Rémunération déclarée', 'Un salarié figurant à l’état annuel doit avoir perçu une rémunération.',
       'verif', E.filter(r => dnum(r.totalbrut_employe) <= 0)
         .map(r => [ref(r), 'total brut nul ou négatif', nomC(r), F(dnum(r.totalbrut_employe))]),
       ['Ligne','Constat','Salarié','Déclaré']);
@@ -3861,13 +3896,119 @@ const DAS_SEV = {
   verif:{cls:'info',  lib:'À vérifier', ordre:2}
 };
 
+/* ═════════ SCORE DE CONFORMITÉ ═════════
+   Une note sur 100, et un verdict qui n'est pas la même chose.
+
+   La note mesure le VOLUME d'anomalies : chaque contrôle vaut un poids selon
+   sa gravité, et rapporte ce poids au prorata des lignes saines. Un contrôle
+   qui échoue sur 1 salarié de 400 ne coûte pas autant qu'un qui échoue sur
+   380 — c'est tout l'intérêt d'une note plutôt que d'un décompte.
+
+   Le verdict dit si la déclaration est DÉPOSABLE, et cela ne se négocie pas :
+   un seul contrôle bloquant en anomalie, et elle ne l'est pas, quelle que
+   soit la note. D'où deux indicateurs et non un : « 98/100, non déposable »
+   se lit très bien — presque tout est en ordre, mais il reste un bloqueur.
+
+   Les contrôles qui n'ont pas pu s'exécuter, faute de la page qu'ils
+   examinent, ne comptent ni en bien ni en mal : noter ce qu'on n'a pas vu
+   n'aurait pas de sens. */
+
+const DAS_POIDS = { bloquant: 5, important: 2, verif: 1 };
+
+/* Population examinée par un contrôle, d'où se tire son taux de conformité. */
+function dasBase(c){
+  if(c.code.startsWith('P1')) return DAS.nomin ? DAS.nomin.lignes.length : 0;
+  if(c.code.startsWith('P2')) return DAS.recap
+    ? DAS.recap.lignes.filter(r => dtxt(r.salaire_du_mois).toUpperCase() !== 'AJUSTEMENT').length : 0;
+  return (c.detail && c.detail.length) || c.faits.length;   /* rapprochement : les rubriques */
+}
+
+function dasScore(R){
+  const lignes = [], parSev = {};
+  let obtenus = 0, possibles = 0;
+
+  R.forEach(c => {
+    const poids = DAS_POIDS[c.sev] || 1;
+    const base = dasBase(c);
+    const ko = c.faits.length;
+    /* Sans population connue, le contrôle est tout ou rien. */
+    const taux = base > 0 ? Math.max(0, 1 - ko / base) : (ko ? 0 : 1);
+    obtenus += poids * taux; possibles += poids;
+    const g = parSev[c.sev] || (parSev[c.sev] = {n:0, ko:0, obtenus:0, possibles:0});
+    g.n++; if(ko) g.ko++; g.obtenus += poids * taux; g.possibles += poids;
+    lignes.push({code:c.code, nom:c.nom, sev:c.sev, poids, base, ko, taux});
+  });
+
+  const note = possibles > 0 ? Math.round(obtenus / possibles * 100) : null;
+  const bloq = R.filter(c => c.sev === 'bloquant' && c.faits.length).length;
+  const imp  = R.filter(c => c.sev === 'important' && c.faits.length).length;
+
+  let cle, verdict, sous;
+  if(note === null){ cle = ''; verdict = 'Aucun contrôle exécuté'; sous = ''; }
+  else if(bloq){
+    cle = 'non'; verdict = 'Non déposable en l’état';
+    sous = `${bloq} contrôle${bloq>1?'s':''} bloquant${bloq>1?'s':''} en anomalie. ` +
+           `Une anomalie bloquante interdit le dépôt quelle que soit la note : ` +
+           `la note dit l’ampleur du travail restant, pas la recevabilité.`;
+  }
+  else if(note === 100){
+    cle = 'ok'; verdict = 'Conforme';
+    sous = 'Les ' + R.length + ' contrôles exécutés n’ont relevé aucun écart.';
+  }
+  else if(imp){
+    cle = 'corriger'; verdict = 'À corriger avant dépôt';
+    sous = `${imp} contrôle${imp>1?'s':''} d’anomalies importantes. Rien n’interdit le dépôt, ` +
+           `mais ces écarts se retrouveront dans un contrôle ultérieur.`;
+  }
+  else {
+    cle = 'reserve'; verdict = 'Conforme sous réserve';
+    sous = 'Aucun écart bloquant ni important. Les points relevés sont à vérifier, ' +
+           'sans obstacle au dépôt.';
+  }
+
+  return {note, verdict, sous, cle, bloq, imp, obtenus, possibles, lignes, parSev};
+}
+
+function dasScoreHtml(sc, detail){
+  if(sc.note === null) return '';
+  const pct = Math.max(0, Math.min(100, sc.note));
+  const tab = !detail ? '' : `
+    <table class="score-tab">
+      <tr><th>Gravité</th><th>Contrôles</th><th>En anomalie</th>
+          <th>Poids unitaire</th><th>Points obtenus</th><th>Points possibles</th></tr>
+      ${['bloquant','important','verif'].filter(s => sc.parSev[s]).map(s => {
+        const g = sc.parSev[s];
+        return `<tr><td>${DAS_SEV[s].lib}</td><td>${g.n}</td><td>${g.ko}</td>
+          <td>${DAS_POIDS[s]}</td><td>${g.obtenus.toFixed(2)}</td><td>${g.possibles}</td></tr>`;
+      }).join('')}
+      <tr><td><b>Total</b></td><td><b>${sc.lignes.length}</b></td>
+          <td><b>${sc.lignes.filter(l => l.ko).length}</b></td><td></td>
+          <td><b>${sc.obtenus.toFixed(2)}</b></td><td><b>${sc.possibles}</b></td></tr>
+    </table>
+    <p class="score-sous" style="margin-top:9px">Chaque contrôle vaut un poids selon sa gravité —
+      bloquant 5, important 2, à vérifier 1 — et rapporte ce poids au prorata des lignes saines :
+      un écart sur un salarié ne pèse pas comme un écart sur tout l’effectif. La note est le rapport
+      des points obtenus aux points possibles. Les contrôles qui n’ont pas pu s’exécuter, faute de la
+      page qu’ils examinent, ne sont pas comptés.</p>`;
+  return `<div class="score v-${sc.cle}">
+    <div class="score-note">${sc.note}<small> / 100</small></div>
+    <div class="score-txt">
+      <div class="score-verdict">${esc(sc.verdict)}</div>
+      <div class="score-sous">${sc.sous}</div>
+    </div>
+    <div class="score-jauge"><i style="width:${pct}%"></i></div>
+    ${tab}
+  </div>`;
+}
+
 function renderDas(){
   const host = $('dasHost');
-  if(!DAS.p1 && !DAS.p2){
+  if(!DAS.recap && !DAS.nomin){
     host.innerHTML = `<div class="empty"><h3>Aucun état chargé</h3>
       <p>Chargez la page 1, la page 2, ou les deux. Les contrôles propres à chaque page
       s’exécutent dès qu’elle est présente ; le rapprochement des totaux exige les deux.</p></div>`;
     ['dasNb','dasBloq','dasImp','dasVerif'].forEach(i => $(i).textContent = '—');
+    $('dasScore').innerHTML = '';
     return;
   }
   const R = dasControler();
@@ -3878,6 +4019,11 @@ function renderDas(){
   $('dasImp').textContent = n('important');
   $('dasVerif').textContent = n('verif');
 
+  /* Le détail du calcul ne s'affiche qu'en vue « tous les contrôles » :
+     en vue « anomalies », on vient lire ce qui cloche, pas une méthode. */
+  const sc = dasScore(R);
+  $('dasScore').innerHTML = dasScoreHtml(sc, tout);
+
   const vus = R.filter(c => tout || c.faits.length);
   if(!vus.length){
     host.innerHTML = `<div class="empty"><h3>Aucune anomalie détectée</h3>
@@ -3886,9 +4032,9 @@ function renderDas(){
     return;
   }
   const groupes = [
-    ['Page 1 — état récapitulatif', c => c.code.startsWith('P1')],
+    ['Page 1 — état annuel nominatif', c => c.code.startsWith('P1')],
     ['Rapprochement des deux pages', c => c.code.startsWith('RAP')],
-    ['Page 2 — état annuel nominatif', c => c.code.startsWith('P2')]
+    ['Page 2 — état récapitulatif', c => c.code.startsWith('P2')]
   ];
   host.innerHTML = groupes.map(([titre, f]) => {
     const l = vus.filter(f);
@@ -3923,27 +4069,32 @@ function renderDas(){
   host.querySelectorAll('.ctrl.ko, .ctrl.warn').forEach(c => c.classList.add('open'));
 }
 
-async function dasCharger(page, file){
-  const rep = $('repDas'), etat = $('etatDas'+page);
+/* `cle` vaut 'Recap' ou 'Nomin' : le contenu, jamais le numéro de page. */
+const DAS_ATTENDU = { Recap: ['salaire_du_mois','retenue_ir'],
+                      Nomin: ['matricule_employe','totalbrut_employe'] };
+
+async function dasCharger(cle, file){
+  const rep = $('repDas'), etat = $('etatDas'+cle);
   try{
     const rows = await dasLire(file);
     if(!rows || rows.length < 2) throw new Error('vide');
     const m = dasMapper(rows);
-    const attendu = page === 1 ? ['salaire_du_mois','retenue_ir'] : ['matricule_employe','totalbrut_employe'];
-    const manque = attendu.filter(k => m.ix[k] === undefined);
+    const manque = DAS_ATTENDU[cle].filter(k => m.ix[k] === undefined);
     if(manque.length) throw new Error('colonnes:'+manque.join(', '));
-    DAS['p'+page] = m; DAS['f'+page] = file.name;
+    DAS[cle.toLowerCase()] = m; DAS['f'+cle] = file.name;
     etat.textContent = `${m.lignes.length} ligne${m.lignes.length>1?'s':''} · ${file.name}`;
     etat.classList.add('ok');
     rep.innerHTML = '';
-    if(page === 1){
+    if(cle === 'Recap'){
       const d = m.lignes.map(r => dasDate(r.date_versement)).filter(Boolean).sort((a,b) => a-b)[0];
       if(d && !$('dasExercice').value) $('dasExercice').value = d.getMonth() === 0 ? d.getFullYear()-1 : d.getFullYear();
     }
     renderDas();
   }catch(err){
     const msg = String(err.message).startsWith('colonnes:')
-      ? `Ce fichier ne ressemble pas à la page ${page} : les colonnes ${esc(err.message.slice(9))} sont absentes. Vérifiez que vous ne les avez pas interverties.`
+      ? `Ce fichier ne ressemble pas à l’${cle === 'Nomin' ? 'état annuel nominatif (page 1)'
+          : 'état récapitulatif (page 2)'} : les colonnes ${esc(err.message.slice(9))} sont absentes. ` +
+        `Vérifiez que vous ne les avez pas interverties.`
       : err.message === 'sheetjs'
       ? 'La lecture du format Excel nécessite une ressource externe qui n’a pas pu être chargée. Enregistrez le fichier en CSV depuis Excel.'
       : 'Le fichier n’a pas pu être lu. Il doit comporter une ligne d’en-tête et au moins une ligne de données.';
@@ -3956,11 +4107,22 @@ function dasExporter(){
   const rows = [
     ['Rapport de contrôle — déclaration annuelle des salaires'],
     ['Exercice', $('dasExercice').value || '—'],
-    ['Page 1', DAS.f1 || 'non chargée'], ['Page 2', DAS.f2 || 'non chargée'],
+    ['Page 1 — état annuel nominatif', DAS.fNomin || 'non chargée'],
+    ['Page 2 — état récapitulatif',   DAS.fRecap || 'non chargée'],
     ['Établi le', new Date().toLocaleString('fr-FR')],
-    [],
-    ['Code','Contrôle','Gravité','Statut','Écarts']
+    []
   ];
+  const sc = dasScore(DAS.res);
+  if(sc.note !== null){
+    rows.push(['Score de conformité', sc.note + ' / 100'], ['Verdict', sc.verdict],
+              ['Points obtenus', Number(sc.obtenus.toFixed(2))], ['Points possibles', sc.possibles],
+              [],
+              ['Gravité','Contrôles','En anomalie','Poids unitaire','Points obtenus','Points possibles']);
+    ['bloquant','important','verif'].forEach(k => { const g = sc.parSev[k]; if(!g) return;
+      rows.push([DAS_SEV[k].lib, g.n, g.ko, DAS_POIDS[k], Number(g.obtenus.toFixed(2)), g.possibles]); });
+    rows.push([]);
+  }
+  rows.push(['Code','Contrôle','Gravité','Statut','Écarts']);
   DAS.res.forEach(c => rows.push([c.code, c.nom, DAS_SEV[c.sev].lib,
     c.faits.length ? 'anomalie' : 'conforme', c.faits.length]));
   DAS.res.filter(c => c.faits.length).forEach(c => {
@@ -3982,7 +4144,7 @@ function dasExporterWord(){
   const n = sv => R.filter(c => c.sev === sv && c.faits.length).length;
   const anomalies = R.filter(c => c.faits.length);
   const totalEcarts = anomalies.reduce((t,c) => t + c.faits.length, 0);
-  const eff = DAS.p2 ? DAS.p2.lignes.length : 0;
+  const eff = DAS.nomin ? DAS.nomin.lignes.length : 0;
 
   const verdict = n('bloquant')
     ? `La déclaration comporte ${n('bloquant')} anomalie${n('bloquant')>1?'s':''} bloquante${n('bloquant')>1?'s':''}. Elle ne peut être déposée en l’état : les écarts relevés ci-dessous empêchent le rapprochement des deux pages ou contreviennent aux règles de forme du formulaire.`
@@ -4008,6 +4170,10 @@ function dasExporterWord(){
       <td style="color:${ko ? svCol[c.sev] : '#171C8F'};font-weight:${ko ? 'bold' : 'normal'}">${ko ? 'Anomalie' : 'Conforme'}</td>
     </tr>`;
   }).join('');
+
+  const SC = dasScore(R);
+  const SC_COL = SC.cle === 'non' ? svCol.bloquant : SC.cle === 'corriger' ? svCol.important
+               : SC.cle === 'ok' ? '#1B7F4B' : '#0072CE';
 
   const MAXL = 250;
   const detail = anomalies.map(c => {
@@ -4070,11 +4236,35 @@ function dasExporterWord(){
   <p class="st">Déclaration annuelle des salaires — exercice ${esc(ex)}</p>
 
   <table class="id" border="0" cellspacing="0" cellpadding="0" width="100%">
-    ${ligneInfo('Page 1 — état récapitulatif', esc(DAS.f1 || 'non chargée') + (DAS.p1 ? ` · ${DAS.p1.lignes.length} ligne(s)` : ''))}
-    ${ligneInfo('Page 2 — état annuel nominatif', esc(DAS.f2 || 'non chargée') + (eff ? ` · ${eff} salarié(s)` : ''))}
+    ${ligneInfo('Page 1 — état annuel nominatif', esc(DAS.fNomin || 'non chargée') + (eff ? ` · ${eff} salarié(s)` : ''))}
+    ${ligneInfo('Page 2 — état récapitulatif', esc(DAS.fRecap || 'non chargée') + (DAS.recap ? ` · ${DAS.recap.lignes.length} ligne(s)` : ''))}
     ${ligneInfo('Contrôles exécutés', R.length)}
+    ${ligneInfo('Score de conformité', SC.note === null ? '—'
+        : `<b style="color:${SC_COL}">${SC.note} / 100</b> — ${esc(SC.verdict)}`)}
     ${ligneInfo('Rapport établi le', new Date().toLocaleString('fr-FR'))}
   </table>
+
+  ${SC.note === null ? '' : `
+  <h3>Score de conformité</h3>
+  <table class="s" border="1" cellspacing="0" cellpadding="5" bordercolor="#C8C9C7" width="100%">
+    <tr><th width="26%">Gravité</th><th width="14%">Contrôles</th><th width="16%">En anomalie</th>
+      <th width="14%">Poids</th><th width="15%">Points obtenus</th><th width="15%">Points possibles</th></tr>
+    ${['bloquant','important','verif'].filter(k => SC.parSev[k]).map(k => { const g = SC.parSev[k];
+      return `<tr><td>${svLib[k]}</td><td align="center">${g.n}</td>
+        <td align="center" style="color:${g.ko ? svCol[k] : '#97999B'};font-weight:bold">${g.ko || '—'}</td>
+        <td align="center">${DAS_POIDS[k]}</td><td align="center">${g.obtenus.toFixed(2)}</td>
+        <td align="center">${g.possibles}</td></tr>`; }).join('')}
+    <tr><td><b>Total</b></td><td align="center"><b>${R.length}</b></td>
+      <td align="center"><b>${SC.lignes.filter(l => l.ko).length}</b></td><td></td>
+      <td align="center"><b>${SC.obtenus.toFixed(2)}</b></td>
+      <td align="center"><b>${SC.possibles}</b></td></tr>
+  </table>
+  <p class="note" style="margin-top:6pt">Chaque contrôle vaut un poids selon sa gravité — bloquant 5,
+    important 2, à vérifier 1 — et rapporte ce poids au prorata des lignes saines : un écart sur un
+    salarié ne pèse pas comme un écart sur tous. La note est le rapport des points obtenus aux points
+    possibles. Les contrôles qui n’ont pas pu s’exécuter, faute de la page qu’ils examinent, ne sont
+    pas comptés.</p>
+  <p class="note"><b>${esc(SC.verdict)}.</b> ${SC.sous}</p>`}
 
   <h3>Synthèse</h3>
   <table class="s" border="1" cellspacing="0" cellpadding="5" bordercolor="#C8C9C7" width="100%">
@@ -4128,7 +4318,7 @@ function dasExporterWord(){
 }
 
 function brancherDas(){
-  [1,2].forEach(n => {
+  ['Nomin','Recap'].forEach(n => {
     $('pickDas'+n).addEventListener('click', () => $('fileDas'+n).click());
     $('fileDas'+n).addEventListener('change', e => {
       if(e.target.files[0]) dasCharger(n, e.target.files[0]); e.target.value = '';
@@ -4143,10 +4333,10 @@ function brancherDas(){
   $('dasExport').addEventListener('click', dasExporter);
   $('dasExportWord').addEventListener('click', dasExporterWord);
   $('dasVider').addEventListener('click', () => {
-    if(!DAS.p1 && !DAS.p2) return;
+    if(!DAS.recap && !DAS.nomin) return;
     if(!confirm('Retirer les deux états chargés ?')) return;
-    DAS.p1 = DAS.p2 = null; DAS.f1 = DAS.f2 = ''; DAS.res = [];
-    [1,2].forEach(n => { $('etatDas'+n).textContent = 'Aucun fichier chargé';
+    DAS.recap = DAS.nomin = null; DAS.fRecap = DAS.fNomin = ''; DAS.res = [];
+    ['Nomin','Recap'].forEach(n => { $('etatDas'+n).textContent = 'Aucun fichier chargé';
       $('etatDas'+n).classList.remove('ok'); });
     $('repDas').innerHTML = ''; renderDas();
   });

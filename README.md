@@ -124,7 +124,7 @@ ligne :
 |---|---|
 | Traitement individuel | Parts, IR, calcul à l'envers, bulletin, retraite, licenciement, avantages |
 | Traitement groupé | Les mêmes calculs sur un effectif importé, et l'édition des bulletins en lot |
-| Déclaration annuelle des salaires | Contrôle des deux pages avant dépôt et rapport Word |
+| Déclaration annuelle des salaires | Contrôle des deux pages avant dépôt, score de conformité et rapport Word — page 1 : état annuel nominatif, page 2 : état récapitulatif |
 | Modèles de documents | Les vingt et un modèles et le publipostage |
 | Assistant IA | Questions en langage libre sur les documents chargés |
 | Barème et taux | Modification du barème de l'impôt, des paliers et des cotisations |
@@ -174,6 +174,35 @@ général — ne s'affichent que pour les administrateurs.
 
 Un changement de droits prend effet au prochain chargement de l'outil. Pour
 qu'il soit immédiat, fermez les sessions de la personne.
+
+### Le score de conformité de la déclaration annuelle
+
+Le module affiche une **note sur 100** et un **verdict**, qui ne disent pas la
+même chose.
+
+La note mesure le *volume* d'anomalies. Chaque contrôle vaut un poids selon sa
+gravité — bloquant 5, important 2, à vérifier 1 — et rapporte ce poids au
+prorata des lignes saines : un écart sur un salarié de quatre cents ne coûte
+pas autant qu'un écart sur tous. La note est le rapport des points obtenus aux
+points possibles. Les contrôles qui n'ont pas pu s'exécuter, faute de la page
+qu'ils examinent, ne sont comptés ni en bien ni en mal.
+
+Le verdict dit si la déclaration est *déposable*, et cela ne se négocie pas :
+
+| Verdict | Quand |
+|---|---|
+| Conforme | 100 sur 100, aucun écart |
+| Conforme sous réserve | ni bloquant ni important ; des points à vérifier |
+| À corriger avant dépôt | au moins une anomalie importante, aucune bloquante |
+| Non déposable en l'état | au moins une anomalie bloquante, **quelle que soit la note** |
+
+D'où deux indicateurs plutôt qu'un : « 98 sur 100, non déposable » se lit très
+bien — presque tout est en ordre, mais il reste un bloqueur. Une note seule
+aurait laissé croire l'inverse.
+
+Le détail du calcul s'affiche en vue « Tous les contrôles », et figure dans le
+rapport Word comme dans l'export tableur : la note se vérifie, elle ne se croit
+pas.
 
 ### La clé API de l'assistant
 
