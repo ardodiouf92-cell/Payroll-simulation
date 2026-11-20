@@ -47,6 +47,81 @@ const normDroits = d => {
   return [...new Set(g)];
 };
 
+/* ═════════ le dossier attaché à un compte ═════════
+   Un dossier, c'est un client : son identité visuelle et ses taux propres.
+   Les lignes de cotisation qu'on accepte d'y fixer sont nommées une à une —
+   ouvrir tout le barème à l'écriture par l'interface d'administration
+   reviendrait à y ouvrir aussi les fautes de frappe. */
+const COTIS_DOSSIER = {
+  cssAt: 'C.S.S. — Accident du travail',
+  cssPf: 'C.S.S. — Prestations familiales'
+};
+const LOGO_MAX = 400 * 1024;       /* 400 ko de data URI, soit ~300 ko d'image */
+
+const estCouleur = v => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
+const texteCourt = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+
+/* Rend le dossier nettoyé, ou lève une erreur disant ce qui cloche. */
+function normDossier(d) {
+  if (d === null || d === undefined) return null;
+  if (typeof d !== 'object' || Array.isArray(d)) throw new Error('Dossier mal formé.');
+
+  const out = {};
+
+  if (d.charte && typeof d.charte === 'object') {
+    const c = d.charte, ch = {};
+    if (c.nom !== undefined)      ch.nom      = texteCourt(c.nom, 60);
+    if (c.baseline !== undefined) ch.baseline = texteCourt(c.baseline, 80);
+    for (const k of ['c1', 'c2', 'c3']) {
+      if (c[k] === undefined || c[k] === null || c[k] === '') continue;
+      if (!estCouleur(c[k]))
+        throw new Error(`La couleur « ${k} » doit s’écrire #RRGGBB.`);
+      ch[k] = String(c[k]).toLowerCase();
+    }
+    if (c.logo !== undefined) {
+      const l = String(c.logo || '');
+      if (l) {
+        if (!/^data:image\/(png|jpeg|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(l))
+          throw new Error('Le logo doit être une image PNG, JPEG, GIF, WebP ou SVG.');
+        if (l.length > LOGO_MAX)
+          throw new Error(`Le logo dépasse ${Math.round(LOGO_MAX / 1024)} ko. Réduisez l’image.`);
+      }
+      ch.logo = l;
+    }
+    if (Object.keys(ch).length) out.charte = ch;
+  }
+
+  if (d.cotis && typeof d.cotis === 'object') {
+    const co = {};
+    for (const [code, v] of Object.entries(d.cotis)) {
+      if (!COTIS_DOSSIER[code])
+        throw new Error(`Cotisation inconnue : « ${code} ».`);
+      if (!v || typeof v !== 'object') continue;
+      const ligne = {};
+      for (const k of ['sal', 'pat']) {
+        if (v[k] === undefined || v[k] === null || v[k] === '') continue;
+        const t = Number(v[k]);
+        /* Les taux sont des fractions : 0,03 et non 3. Au-delà de 1 on
+           refuse plutôt que de diviser par cent dans le dos de qui saisit. */
+        if (!Number.isFinite(t) || t < 0 || t > 1)
+          throw new Error(`${COTIS_DOSSIER[code]} : le taux doit être compris entre 0 et 1 ` +
+                          `(0,03 pour 3 %). Reçu : ${v[k]}.`);
+        ligne[k] = t;
+      }
+      if (v.plafond !== undefined && v.plafond !== null && v.plafond !== '') {
+        const p = Number(v.plafond);
+        if (!Number.isFinite(p) || p < 0 || p > 1e9)
+          throw new Error(`${COTIS_DOSSIER[code]} : plafond invalide.`);
+        ligne.plafond = Math.round(p);
+      }
+      if (Object.keys(ligne).length) co[code] = ligne;
+    }
+    if (Object.keys(co).length) out.cotis = co;
+  }
+
+  return Object.keys(out).length ? out : null;
+}
+
 /* ═════════ connexion à la base ═════════ */
 const URL_BASE = process.env.DATABASE_URL;
 if (!URL_BASE) {
@@ -91,6 +166,10 @@ async function migrer() {
      dans le texte, ce que rien n'interdit ici — ces clés sont nos constantes. */
   await q(`ALTER TABLE utilisateurs ADD COLUMN IF NOT EXISTS droits jsonb
              NOT NULL DEFAULT '${JSON.stringify(CLES_MODULES)}'::jsonb`);
+  /* Le dossier attaché au compte : identité visuelle et taux propres au
+     client. NULL tant qu'aucun n'a été posé — l'outil se comporte alors
+     comme avant. */
+  await q(`ALTER TABLE utilisateurs ADD COLUMN IF NOT EXISTS dossier jsonb`);
   await q(`
     CREATE TABLE IF NOT EXISTS reglages (
       cle    text        PRIMARY KEY,
@@ -464,6 +543,31 @@ const PAGE_SERVIE = (() => {
                : base.slice(0, i) + BANDEAU + '\n' + base.slice(i);
 })();
 
+/* ─── le dossier part avec la page ───
+   L'outil lit window.PS_PROFIL au tout début de son démarrage. Le lui faire
+   chercher par un appel séparé aurait créé une course avec ce démarrage,
+   gagnée une fois sur deux. On coupe donc la page en deux, une fois pour
+   toutes, et chaque réponse recolle les deux morceaux autour du profil du
+   compte qui la demande. */
+const [PAGE_AVANT, PAGE_APRES] = (() => {
+  const i = PAGE_SERVIE.indexOf('<script>');
+  if (i < 0) {
+    console.warn('[payor] aucun <script> trouvé dans la page : le dossier par compte ' +
+                 'ne sera pas transmis.');
+    return [PAGE_SERVIE, ''];
+  }
+  return [PAGE_SERVIE.slice(0, i), PAGE_SERVIE.slice(i)];
+})();
+
+function pagePour(u) {
+  /* L'administrateur reçoit son dossier sans verrou : il lui faut pouvoir
+     essayer une couleur avant de l'imposer à quelqu'un. */
+  const d = u && u.dossier ? { ...u.dossier, libre: u.role === 'admin' } : null;
+  const script = '<script>window.PS_PROFIL=' +
+    JSON.stringify(d).replace(/</g, '\\u003c') + ';</script>\n';
+  return PAGE_AVANT + script + PAGE_APRES;
+}
+
 /* extraction de la marque, pour que la page de garde porte le même logo
    que l'outil sans dupliquer le fichier */
 const MARQUE = (() => {
@@ -478,7 +582,10 @@ const MARQUE = (() => {
 /* ═════════ routes ═════════ */
 app.disable('x-powered-by');
 app.set('trust proxy', 1);              /* Render place un proxy devant le service */
-app.use(express.json({ limit: '64kb' }));
+/* 64 ko suffisaient quand le corps ne portait que des identifiants. Un logo
+   de dossier en data URI pèse davantage : la limite laisse passer les 400 ko
+   que la validation accepte, et un peu de marge pour le reste du corps. */
+app.use(express.json({ limit: '600kb' }));
 app.use(route(session));
 
 app.use((_req, res, next) => {
@@ -567,14 +674,16 @@ app.post('/api/mon-mot-de-passe', exigeSession, route(async (req, res) => {
 
 /* ─── administration des comptes ─── */
 const SELECT_VUE = `
-  SELECT u.id, u.login, u.nom, u.role, u.actif, u.doit_changer, u.cree, u.derniere, u.droits,
+  SELECT u.id, u.login, u.nom, u.role, u.actif, u.doit_changer, u.cree, u.derniere,
+         u.droits, u.dossier,
          (SELECT count(*)::int FROM sessions s
            WHERE s.utilisateur = u.id AND s.expire > now()) AS sessions
     FROM utilisateurs u`;
 
 const vue = r => ({ login: r.login, nom: r.nom, role: r.role, actif: r.actif,
                     cree: r.cree, derniere: r.derniere, droits: droitsDe(r),
-                    doitChanger: r.doit_changer, sessions: r.sessions });
+                    doitChanger: r.doit_changer, sessions: r.sessions,
+                    dossier: r.dossier || null });
 
 app.get('/admin', exigeSession, (req, res) => {
   if (req.u.role !== 'admin') return res.redirect('/');
@@ -647,6 +756,13 @@ app.patch('/api/utilisateurs/:login', exigeSession, exigeAdmin, route(async (req
   if (req.body.droits !== undefined)
     pose('droits', JSON.stringify(normDroits(req.body.droits)), '::jsonb');
 
+  if (req.body.dossier !== undefined) {
+    let d;
+    try { d = normDossier(req.body.dossier); }
+    catch (e) { return res.status(400).json({ erreur: e.message }); }
+    pose('dossier', d === null ? null : JSON.stringify(d), d === null ? '' : '::jsonb');
+  }
+
   if (req.body.fermerSessions) couper = true;
 
   if (champs.length)
@@ -718,10 +834,10 @@ app.post('/api/ia', exigeSession, route(async (req, res) => {
 }));
 
 /* ─── l'outil, derrière la porte ─── */
-app.get('/', exigeSession, (_req, res) => {
+app.get('/', exigeSession, (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
-  res.send(PAGE_SERVIE);
+  res.send(pagePour(req.u));
 });
 
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
@@ -733,6 +849,15 @@ app.use((req, res) => {
 
 app.use((err, req, res, _next) => {
   console.error('[payor]', req.method, req.path, '→', err.message);
+
+  /* Un corps trop gros ou mal formé vient de qui appelle, pas du service :
+     le dire, plutôt que de renvoyer une panne qui n'en est pas une. */
+  if (err.type === 'entity.too.large')
+    return res.status(413).json({ erreur: 'Envoi trop volumineux. Un logo ne doit pas ' +
+      'dépasser 400 ko ; réduisez l\u2019image avant de la charger.' });
+  if (err.type === 'entity.parse.failed' || err instanceof SyntaxError)
+    return res.status(400).json({ erreur: 'Requête mal formée.' });
+
   if (req.path.startsWith('/api/'))
     return res.status(500).json({ erreur: 'Le service a rencontré une erreur.' });
   res.status(500).send('Le service a rencontré une erreur.');

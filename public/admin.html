@@ -140,7 +140,7 @@ button{font:inherit;font-size:12.5px;border-radius:4px;cursor:pointer;padding:8p
     <table>
       <thead><tr>
         <th>Identifiant</th><th>Nom</th><th>Rôle</th><th>État</th>
-        <th>Modules</th><th>Dernière connexion</th><th>Sessions</th><th></th>
+        <th>Modules</th><th>Dossier</th><th>Dernière connexion</th><th>Sessions</th><th></th>
       </tr></thead>
       <tbody id="corps"></tbody>
     </table>
@@ -244,12 +244,14 @@ function rendre(us) {
             ? '<span class="droits"><span class="m">tous</span></span>'
             : `<div class="droits">${MODULES.map(m =>
                 `<span class="m${u.droits.includes(m.cle) ? '' : ' off'}">${esc(m.nom)}</span>`).join('')}</div>`}</td>
+      <td>${pastilleDossier(u.dossier)}</td>
       <td>${jour(u.derniere)}</td>
       <td>${u.sessions ? `<span class="pill ok">${u.sessions} ouverte${u.sessions>1?'s':''}</span>` :
             '<span class="pill off">aucune</span>'}</td>
       <td><div class="actions">
         ${u.sessions ? '<button class="b2 sm" data-act="sessions">Fermer les sessions</button>' : ''}
         ${u.role === 'admin' ? '' : '<button class="b2 sm" data-act="modules">Modules</button>'}
+        <button class="b2 sm" data-act="dossier">Dossier</button>
         <button class="b2 sm" data-act="mdp">Réinitialiser</button>
         <button class="b2 sm" data-act="bascule">${u.actif ? 'Suspendre' : 'Réactiver'}</button>
         ${moi ? '' : '<button class="b3 sm" data-act="suppr">Supprimer</button>'}
@@ -265,6 +267,7 @@ async function agir(login, act, bouton) {
   dire($('alerte'), ''); dire($('info'), '');
   try {
     if (act === 'modules') return modules(login);
+    if (act === 'dossier') return dossierDe(login);
 
     if (act === 'mdp') {
       const mdp = motDePasse();
@@ -316,7 +319,7 @@ function modules(login) {
 
   const ligne = document.createElement('tr');
   ligne.className = 'edition';
-  ligne.innerHTML = `<td colspan="8" style="background:var(--smoke);padding:14px 10px">
+  ligne.innerHTML = `<td colspan="9" style="background:var(--smoke);padding:14px 10px">
     <b style="font-size:12.5px;color:var(--indigo)">Modules ouverts à « ${esc(login)} »</b>
     <div class="mods" id="modsEdit" style="margin:8px 0 12px"></div>
     <div class="actions" style="justify-content:flex-start">
@@ -339,6 +342,195 @@ function modules(login) {
       dire($('info'), `Modules de « ${login} » enregistrés. Le changement prend effet au ` +
         `prochain chargement de l’outil ; fermez ses sessions pour qu’il soit immédiat.`);
       charger();
+    } catch (ex) { dire($('alerte'), ex.message); }
+  };
+}
+
+
+/* ═════════ le dossier attaché à un accès ═════════
+   Un dossier, c'est un client : ses couleurs, son logo, et le taux de C.S.S.
+   qui lui est propre — la classe de risque n'est pas la même d'une activité
+   à l'autre. Ce que l'on fixe ici s'impose à l'outil de la personne, qui le
+   voit grisé. L'administrateur, lui, reçoit le sien sans verrou.           */
+
+const CHARTE_DEF_ADMIN = { c1:'#171C8F', c2:'#0072CE', c3:'#5D93CD' };
+const COTIS_DEF = { cssAt:{ nom:'C.S.S. — Accident du travail',  pat:0.05, plafond:63000 },
+                    cssPf:{ nom:'C.S.S. — Prestations familiales', pat:0.07, plafond:63000 } };
+const LOGO_MAX_ADMIN = 400 * 1024;
+
+function pastilleDossier(d) {
+  if (!d) return '<span class="pill off">aucun</span>';
+  const bouts = [];
+  if (d.charte) {
+    const c = d.charte;
+    const pastille = h => `<span style="display:inline-block;width:11px;height:11px;border-radius:2px;
+      border:1px solid rgba(0,0,0,.18);background:${esc(h)};vertical-align:-1px"></span>`;
+    bouts.push(['c1','c2','c3'].filter(k => c[k]).map(k => pastille(c[k])).join(' '));
+    if (c.logo) bouts.push('<span class="m">logo</span>');
+    if (c.nom)  bouts.push(`<span class="m">${esc(c.nom)}</span>`);
+  }
+  if (d.cotis) {
+    for (const [code, v] of Object.entries(d.cotis))
+      if (v.pat !== undefined)
+        bouts.push(`<span class="m">${code === 'cssAt' ? 'AT' : 'PF'} ${(v.pat*100).toFixed(2)
+          .replace(/\.?0+$/,'')} %</span>`);
+  }
+  return `<div class="droits">${bouts.join(' ')}</div>`;
+}
+
+/* Un logo passe par un canvas avant d'entrer en base : une photo de 4 Mo
+   déposée telle quelle alourdirait chaque ouverture de l'outil. */
+function reduireLogo(fichier) {
+  return new Promise((resout, rejette) => {
+    if (fichier.type === 'image/svg+xml') {           /* vectoriel : rien à réduire */
+      const r = new FileReader();
+      r.onload = () => resout(r.result);
+      r.onerror = () => rejette(new Error('Lecture du fichier impossible.'));
+      return r.readAsDataURL(fichier);
+    }
+    const r = new FileReader();
+    r.onerror = () => rejette(new Error('Lecture du fichier impossible.'));
+    r.onload = () => {
+      const img = new Image();
+      img.onerror = () => rejette(new Error('Ce fichier n’est pas une image lisible.'));
+      img.onload = () => {
+        const H = 120;                                 /* hauteur d’affichage × 2 */
+        const e = Math.min(1, H / img.height);
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * e); c.height = Math.round(img.height * e);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        let out = c.toDataURL('image/png');
+        if (out.length > LOGO_MAX_ADMIN) out = c.toDataURL('image/jpeg', 0.85);
+        if (out.length > LOGO_MAX_ADMIN)
+          return rejette(new Error('Image trop lourde même après réduction. Essayez un PNG plus simple.'));
+        resout(out);
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(fichier);
+  });
+}
+
+function dossierDe(login) {
+  const tr = document.querySelector(`#corps tr[data-login="${CSS.escape(login)}"]`);
+  const u  = COMPTES.find(x => x.login === login);
+  if (!tr || !u) return;
+
+  const suivante = tr.nextElementSibling;
+  document.querySelectorAll('#corps tr.edition').forEach(x => x.remove());
+  if (suivante && suivante.classList.contains('edition') &&
+      suivante.dataset.quoi === 'dossier') return;      /* second clic : on referme */
+
+  const d  = u.dossier || {};
+  const ch = d.charte || {};
+  const co = d.cotis  || {};
+  const v  = (code, k) => (co[code] && co[code][k] !== undefined)
+                            ? co[code][k] : COTIS_DEF[code][k];
+
+  const ligne = document.createElement('tr');
+  ligne.className = 'edition';
+  ligne.dataset.quoi = 'dossier';
+  ligne.innerHTML = `<td colspan="9" style="background:var(--smoke);padding:16px 10px">
+    <b style="font-size:12.5px;color:var(--indigo)">Dossier de « ${esc(login)} »</b>
+    <p class="aide" style="margin:4px 0 14px">Ce que vous posez ici s’applique à l’outil de cette
+      personne dès son prochain chargement, et n’y est pas modifiable.${
+      u.role === 'admin' ? ' Son compte étant administrateur, les champs lui resteront ouverts.' : ''}</p>
+
+    <div class="ligne-form" style="align-items:flex-start">
+      <div><label for="dNom">Nom affiché dans l’en-tête</label>
+        <input id="dNom" maxlength="60" value="${esc(ch.nom || '')}" placeholder="Nom du client"></div>
+      <div><label for="dSign">Signature</label>
+        <input id="dSign" maxlength="80" value="${esc(ch.baseline || '')}" placeholder="facultatif"></div>
+      <div><label for="dC1">Couleur principale</label>
+        <input id="dC1" type="color" value="${esc(ch.c1 || CHARTE_DEF_ADMIN.c1)}" style="height:34px;padding:2px"></div>
+      <div><label for="dC2">Couleur d’accent</label>
+        <input id="dC2" type="color" value="${esc(ch.c2 || CHARTE_DEF_ADMIN.c2)}" style="height:34px;padding:2px"></div>
+      <div><label for="dC3">Couleur secondaire</label>
+        <input id="dC3" type="color" value="${esc(ch.c3 || CHARTE_DEF_ADMIN.c3)}" style="height:34px;padding:2px"></div>
+    </div>
+
+    <div style="margin-top:14px">
+      <div><label>Logo</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span id="dLogoVue" style="display:inline-flex;align-items:center;justify-content:center;
+            min-width:84px;height:46px;border:1px dashed var(--trait,#C8C9C7);border-radius:4px;
+            background:#fff;padding:3px">${ch.logo
+              ? `<img src="${esc(ch.logo)}" alt="" style="max-height:40px;max-width:150px">`
+              : '<span class="d" style="font-size:11px;color:#97999B">aucun</span>'}</span>
+          <button type="button" class="b2 sm" id="dLogoPick">Choisir</button>
+          <button type="button" class="b2 sm" id="dLogoDel"${ch.logo ? '' : ' hidden'}>Retirer</button>
+          <input type="file" id="dLogoIn" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+          <span class="aide" style="margin:0">PNG, JPEG, SVG ou WebP. L’image est réduite
+            automatiquement à la hauteur d’affichage.</span>
+        </div></div>
+    </div>
+
+    <div class="ligne-form" style="align-items:flex-start;margin-top:14px">
+      <div><label for="dAtPat">C.S.S. accident du travail — taux patronal</label>
+        <input id="dAtPat" type="number" step="0.001" min="0" max="1" value="${v('cssAt','pat')}"></div>
+      <div><label for="dAtPlaf">AT — plafond mensuel</label>
+        <input id="dAtPlaf" type="number" step="1000" min="0" value="${v('cssAt','plafond')}"></div>
+      <div><label for="dPfPat">C.S.S. prestations familiales — taux patronal</label>
+        <input id="dPfPat" type="number" step="0.001" min="0" max="1" value="${v('cssPf','pat')}"></div>
+      <div><label for="dPfPlaf">PF — plafond mensuel</label>
+        <input id="dPfPlaf" type="number" step="1000" min="0" value="${v('cssPf','plafond')}"></div>
+    </div>
+    <p class="aide" style="margin:8px 0 0">Les taux s’écrivent en fraction : <b>0,03</b> pour 3 %.
+      Au Sénégal, le taux d’accident du travail suit la classe de risque de l’activité —
+      1 %, 3 % ou 5 %.</p>
+
+    <div class="actions" style="justify-content:flex-start;margin-top:14px">
+      <button class="b1 sm" id="dOk">Enregistrer</button>
+      <button class="b3 sm" id="dVide">Retirer le dossier</button>
+      <button class="b2 sm" id="dAnnul">Annuler</button>
+    </div></td>`;
+  tr.after(ligne);
+
+  let logo = ch.logo || '';
+  const vue = $('dLogoVue');
+  const montrer = () => {
+    vue.innerHTML = logo ? `<img src="${esc(logo)}" alt="" style="max-height:40px;max-width:150px">`
+                         : '<span class="d" style="font-size:11px;color:#97999B">aucun</span>';
+    $('dLogoDel').hidden = !logo;
+  };
+  $('dLogoPick').onclick = () => $('dLogoIn').click();
+  $('dLogoDel').onclick  = () => { logo = ''; montrer(); };
+  $('dLogoIn').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try { logo = await reduireLogo(f); montrer(); dire($('info'),
+      `Logo préparé — ${Math.round(logo.length / 1024)} ko. Il reste à enregistrer.`); }
+    catch (ex) { dire($('alerte'), ex.message); }
+  };
+  $('dAnnul').onclick = () => ligne.remove();
+
+  const envoyer = async dossier => {
+    await appel('/api/utilisateurs/' + encodeURIComponent(login), {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ dossier }) });
+    dire($('info'), dossier === null
+      ? `Dossier de « ${login} » retiré : l’outil retrouve ses couleurs et ses taux d’origine.`
+      : `Dossier de « ${login} » enregistré. Il s’applique au prochain chargement de l’outil ; ` +
+        `fermez ses sessions pour qu’il soit immédiat.`);
+    charger();
+  };
+
+  $('dVide').onclick = async () => {
+    if (!confirm(`Retirer le dossier de « ${login} » ?\n\n` +
+                 `Son outil reviendra aux couleurs et aux taux d’origine.`)) return;
+    try { await envoyer(null); } catch (ex) { dire($('alerte'), ex.message); }
+  };
+
+  $('dOk').onclick = async () => {
+    dire($('alerte'), ''); dire($('info'), '');
+    const nb = id => { const x = $(id).value.trim(); return x === '' ? null : Number(x); };
+    try {
+      await envoyer({
+        charte: { nom: $('dNom').value, baseline: $('dSign').value,
+                  c1: $('dC1').value, c2: $('dC2').value, c3: $('dC3').value, logo },
+        cotis: { cssAt: { pat: nb('dAtPat'), plafond: nb('dAtPlaf') },
+                 cssPf: { pat: nb('dPfPat'), plafond: nb('dPfPlaf') } }
+      });
     } catch (ex) { dire($('alerte'), ex.message); }
   };
 }

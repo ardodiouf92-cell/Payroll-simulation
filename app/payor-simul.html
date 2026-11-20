@@ -685,6 +685,11 @@ button.act{border-radius:5px}
 .dots i:nth-child(2){animation-delay:.18s}.dots i:nth-child(3){animation-delay:.36s}
 @keyframes bl{0%,60%,100%{opacity:.25}30%{opacity:1}}
 
+/* Un champ fixé par l'administrateur : visible, lisible, hors d'atteinte. */
+.impose{background:var(--smoke,#F5F5F3)!important;color:var(--ink-soft,#5A6272)!important;
+  cursor:not-allowed!important;opacity:.85}
+.impose:hover{border-color:inherit!important}
+
 /* ─── identité visuelle paramétrable ─── */
 .swatches{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 4px}
 .swatches label{font-size:12px;color:var(--ink-soft);display:flex;align-items:center;gap:7px}
@@ -2869,6 +2874,11 @@ function exporterGroupe(k){
 const pin = (v,a) => `<input type="number" value="${v}" ${a}>`;
 const openLbl = '<span style="color:var(--ink-faint)">au-delà</span>';
 function renderParams(){
+  /* Le profil se réimpose à chaque rendu du barème. C'est le point de
+     passage obligé d'une réinitialisation, d'un import ou d'une remise à
+     zéro : plutôt que de corriger chacun de ces chemins, on rétablit ici
+     ce que l'administrateur a fixé, et nulle part ailleurs. */
+  imposerProfil();
   $('pBareme').innerHTML = P.bareme.map((t,i) =>
     `<tr><td>${t.max===null?openLbl:pin(t.max,`data-p="bareme" data-i="${i}" data-k="max" step="10000"`)}</td>
      <td class="r">${pin(t.taux,`data-p="bareme" data-i="${i}" data-k="taux" step="0.01"`)}</td></tr>`).join('');
@@ -2899,6 +2909,7 @@ function renderParams(){
     const [a,b] = el.dataset.avp.split('.');
     el.value = (P.avantages && P.avantages[a]) ? P.avantages[a][b] : DEFAULTS.avantages[a][b];
   });
+  verrouillerCotis();
 }
 function renderDossier(){
   $('storeMsg').innerHTML = storeMode === 'persist'
@@ -4158,7 +4169,83 @@ function darken(h,p){ const [r,g,b] = hex2rgb(h);
   const m = v => Math.round(v*(1-p));
   return '#' + [m(r),m(g),m(b)].map(v=>v.toString(16).padStart(2,'0')).join(''); }
 
+/* ═════════ PROFIL FIXÉ PAR L'ADMINISTRATEUR ═════════
+   Servi derrière la page d'accès, l'outil reçoit avec la page elle-même le
+   dossier attaché au compte : identité visuelle et taux de la C.S.S. Ces
+   valeurs-là ne se discutent pas depuis l'outil — l'utilisateur les voit,
+   grisées, et sait d'où elles viennent.
+
+   Le profil arrive avec la page, et non par un appel séparé : un appel
+   concurrent du démarrage aurait tantôt gagné, tantôt perdu la course.
+
+   Ouvert seul, hors serveur, PS_PROFIL vaut null et rien de tout ceci
+   n'opère : le fichier reste le fichier autonome qu'il a toujours été. */
+const PROFIL = (typeof window !== 'undefined' && window.PS_PROFIL) || null;
+const NOTE_PROFIL = 'Fixé par l’administrateur pour ce dossier.';
+
+function imposerProfil(){
+  if(!PROFIL) return;
+  if(PROFIL.charte)
+    dossier.charte = {...CHARTE_DEF, ...(dossier.charte||{}), ...PROFIL.charte};
+  for(const [code, v] of Object.entries(PROFIL.cotis || {})){
+    const ligne = (P.cotis || []).find(x => x.code === code);
+    if(!ligne) continue;                       /* un code inconnu est ignoré */
+    for(const k of ['sal','pat','plafond'])
+      if(v[k] !== undefined && v[k] !== null) ligne[k] = v[k];
+  }
+}
+
+/* L'administrateur reçoit son dossier comme les autres, mais sans verrou :
+   il lui faut pouvoir essayer une couleur avant de l'imposer à quelqu'un. */
+const profilVerrouille = () => Boolean(PROFIL && !PROFIL.libre);
+
+function griser(el, note){
+  if(!el) return;
+  el.disabled = true;
+  el.title = note || NOTE_PROFIL;
+  el.classList.add('impose');
+}
+
+/* Le barème se redessine à chaque rendu : les verrous aussi. */
+function verrouillerCotis(){
+  if(!profilVerrouille() || !PROFIL.cotis) return;
+  for(const code of Object.keys(PROFIL.cotis)){
+    const i = (P.cotis || []).findIndex(x => x.code === code);
+    if(i < 0) continue;
+    document.querySelectorAll(`#pCotis [data-p="cotis"][data-i="${i}"]`)
+      .forEach(el => griser(el));
+  }
+  const t = $('pCotis');
+  if(t && !t.dataset.noteProfil){
+    t.dataset.noteProfil = '1';
+    const p = document.createElement('p');
+    p.className = 'params-intro';
+    p.style.marginTop = '8px';
+    p.textContent = 'Les taux grisés sont ceux du dossier attaché à votre accès. ' +
+      'Pour les modifier, adressez-vous à l’administrateur.';
+    t.closest('table').after(p);
+  }
+}
+
+function verrouillerCharte(){
+  if(!profilVerrouille() || !PROFIL.charte) return;
+  ['chNom','chBaseline','chC1','chC2','chC3','chLogoBtn','chLogoDel','chReset']
+    .forEach(id => griser($(id)));
+  const z = $('chNom') && $('chNom').closest('div');
+  const bloc = document.querySelector('#panel-dossier .swatches');
+  if(bloc && !bloc.dataset.noteProfil){
+    bloc.dataset.noteProfil = '1';
+    const p = document.createElement('p');
+    p.className = 'params-intro';
+    p.style.margin = '8px 0 0';
+    p.textContent = 'L’identité visuelle est celle du dossier attaché à votre accès. ' +
+      'Elle se règle depuis la page des accès.';
+    bloc.after(p);
+  }
+}
+
 function appliquerCharte(){
+  imposerProfil();                 /* un import ou une remise à zéro ne l'emporte pas */
   const c = dossier.charte = {...CHARTE_DEF, ...(dossier.charte||{})};
   const R = document.documentElement.style;
   R.setProperty('--brand-1', c.c1); R.setProperty('--brand-2', c.c2); R.setProperty('--brand-3', c.c3);
@@ -5489,7 +5576,8 @@ function brancherIa(){
 /* ═════════ INITIALISATION DES EXTENSIONS ═════════ */
 async function initExtensions(){
   dossier.charte = {...CHARTE_DEF, ...(dossier.charte||{})};
-  majCharteUI(); appliquerCharte(); brancherCharte();
+  imposerProfil();
+  majCharteUI(); appliquerCharte(); brancherCharte(); verrouillerCharte();
   renderDocNav(); renderDocForm();
   $('btnDocPrint').addEventListener('click', docPrint);
   $('btnDocWord').addEventListener('click', docWord);
@@ -5518,6 +5606,7 @@ async function initExtensions(){
   }
   document.querySelectorAll('[data-adv]').forEach(el => el.hidden = true);
   dossier.lignesBulletin = dossier.lignesBulletin || [];
+  imposerProfil();                 /* avant tout calcul : les taux en dépendent */
   majBrut(); brancherDas(); brancherPubli(); majEntreprise(); renderLignes(); GK.forEach(renderColonnes); renderParams(); verrousConjoint();
   GK.forEach(k => { const el = $('cl_'+k); if(el) el.value = `${dossier.exercice}-12-31`; });
   renderAll();

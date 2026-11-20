@@ -71,7 +71,7 @@ met à niveau toute seule.
 
 ```
 utilisateurs   id · login · nom · rôle · empreinte du mot de passe · actif
-               · doit_changer · droits · créé le · dernière connexion
+               · doit_changer · droits · dossier · créé le · dernière connexion
 sessions       empreinte du jeton · utilisateur · créée le · vue le · expire
                · adresse · navigateur
 reglages       clé · valeur · mise à jour le · par qui
@@ -133,6 +133,41 @@ ligne :
 Un module fermé **reste visible dans le menu, grisé** : on voit ce que l'outil
 contient, et à qui s'adresser pour y accéder. L'administrateur garde toujours
 tout — il lui faut de quoi rouvrir ce qu'il viendrait de se retirer.
+
+### Le dossier attaché à un accès
+
+Un dossier, c'est un client : son identité visuelle et les taux qui lui sont
+propres. Le bouton *Dossier* de chaque ligne de `/admin` ouvre de quoi poser :
+
+| Réglage | Effet |
+|---|---|
+| Nom affiché, signature | En-tête de l'outil et des documents édités |
+| Trois couleurs | Toute l'interface, les bulletins et les PDF |
+| Logo | Remplace le supergraphique, en haut à gauche |
+| C.S.S. accident du travail | Taux patronal et plafond — la classe de risque n'est pas la même d'une activité à l'autre : 1 %, 3 % ou 5 % |
+| C.S.S. prestations familiales | Taux patronal et plafond |
+
+**Ces valeurs s'imposent.** Dans l'outil de la personne, les champs
+correspondants apparaissent grisés, avec la mention de leur origine : les
+couleurs et le logo dans l'onglet Dossier, les deux taux dans le tableau des
+cotisations du barème. Un import de dossier ou une remise à zéro ne les
+emporte pas — elles se rétablissent à chaque rendu.
+
+L'administrateur, lui, reçoit son propre dossier **sans verrou** : il lui faut
+pouvoir essayer une couleur avant de l'imposer à quelqu'un.
+
+Le dossier part avec la page elle-même, et non par un appel séparé : un appel
+concurrent du démarrage de l'outil aurait été gagné une fois sur deux. Un
+compte sans dossier reçoit l'outil tel qu'il a toujours été.
+
+Les taux s'écrivent en fraction — `0.03` pour 3 %. Une valeur supérieure à 1
+est refusée plutôt que divisée par cent dans le dos de qui la saisit. Le logo
+est réduit par le navigateur avant l'envoi et plafonné à 400 ko ; seules les
+deux lignes de C.S.S. sont ouvertes à l'écriture depuis l'administration, le
+reste du barème n'y est pas exposé.
+
+Comme pour les modules, un changement prend effet au prochain chargement de
+l'outil ; fermez les sessions de la personne pour qu'il soit immédiat.
 
 Les mentions de bas d'écran — charte graphique, portée des modèles, avertissement
 général — ne s'affichent que pour les administrateurs.
